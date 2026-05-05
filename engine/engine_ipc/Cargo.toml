@@ -1,0 +1,13 @@
+[package]
+name = "engine_ipc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+engine_ai = { version = "0.1.0", path = "../engine_ai" }
+engine_core = { version = "0.1.0", path = "../engine_core" }
+engine_nav = { version = "0.1.0", path = "../engine_nav" }
+futures = "0.3.32"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tokio = { version = "1.52.2", features = ["full"] }

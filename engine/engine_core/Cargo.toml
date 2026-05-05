@@ -1,0 +1,8 @@
+[package]
+name = "engine_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+engine_rng = { version = "0.1.0", path = "../engine_rng" }
+serde = { version = "1.0.228", features = ["derive"] }

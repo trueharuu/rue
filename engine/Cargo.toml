@@ -1,0 +1,3 @@
+[workspace]
+resolver = "3"
+members = ["bin", "engine_ai","engine_core", "engine_ipc", "engine_nav", "engine_rng"]

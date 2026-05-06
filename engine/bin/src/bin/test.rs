@@ -32,14 +32,13 @@ pub fn fitness(model: &Model, target_pps: f32, max_pieces: usize) -> f32 {
     let mut attack = 0;
     for i in 0..queue.len() - 2 {
         // clean simulator
-        if i % 14 == 0 {
+        if i % 7 == 0 {
             // for _ in 0..1 {
             //     g.board
             //         .add_garbage((rand::random::<u64>() % 10) as usize, 1);
             // }
 
-            g.board
-                .add_garbage((rand::random::<u64>() % 10) as usize, 8);
+            g.incoming_garbage.extend([1,1,1,1,1,1]);
         }
         let start = std::time::Instant::now();
         let slice = &queue[i..(i + 7).min(queue.len())];

@@ -91,7 +91,7 @@ impl Game {
             info.lines_received = lines.iter().sum::<u8>() as u16;
             for line in lines {
                 self.board
-                    .add_garbage(Rng::new(0).sample(0usize..10), line as u16);
+                    .add_garbage(Rng::new_unseeded().sample(0usize..10), line as u16);
             }
         }
         info

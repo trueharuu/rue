@@ -54,7 +54,7 @@ pub const COMBO_GARBAGE: [u16; 21] = [
 impl Default for Model {
     fn default() -> Self {
         Self {
-            back_to_back: 200,
+            back_to_back: 100,
             bumpiness: -24,
             bumpiness_sq: -7,
             row_transitions: -5,
@@ -71,10 +71,10 @@ impl Default for Model {
             well_depth: 57,
             max_well_depth: 17,
             well_column: [20, 23, 20, 500, 59, 21, 590, 10, -10, 24],
-            waste: [-1520, -152, 0, 0, 0, 0, 0],
+            waste: [-152, -152, 0, 0, 0, 0, 0],
             b2b_clear: 104,
             clear: [-143, -100, -58, 390],
-            spin: [0, 121, 999, 602],
+            spin: [0, 121, 500, 602],
             spin_mini: [0, -100, -93, -600],
             perfect_clear: 999,
             combo_garbage: 150,

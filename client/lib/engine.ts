@@ -136,7 +136,7 @@ export class Engine {
                 combo,
                 board,
                 b2b: engine.stats.b2b,
-                incoming_garbage: engine.garbageQueue.size,
+                incoming_garbage: engine.garbageQueue.queue.map((x) => x.size),
             },
         })) as Packet;
 

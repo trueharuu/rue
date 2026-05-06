@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use engine_ai::{beam::Beam, model::Model};
-use engine_core::{board::Board, display::render, piece::Mino};
+use engine_core::{board::Board, display::render, piece::Mino, spin::Spin};
 use engine_nav::{game::Game, keyfinder::keygen};
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -116,8 +116,8 @@ impl Conn {
                     incoming_garbage,
                 };
 
-                let model = Model::new();
-                let beam = Beam::new(&game, &model, 7, 500);
+                let model = Model::default();
+                let beam = Beam::new(&game, &model, queue.len(), 500);
                 let path = beam.search(&queue);
 
                 match path {
@@ -130,6 +130,7 @@ impl Conn {
                         Response::Path {
                             finesse: keys.iter().map(|x| x.to_string()).collect(),
                             piece: path.piece,
+                            spin: path.spin,
                         }
                     }
                     None => Response::Fail("dead".to_string()),
@@ -156,7 +157,7 @@ pub enum Request {
         queue: Vec<Mino>,
         combo: i8,
         b2b: i16,
-        incoming_garbage: u16,
+        incoming_garbage: Vec<u8>,
     },
 }
 
@@ -167,5 +168,9 @@ pub enum Response {
     Setup,
     Exit,
     Fail(String),
-    Path { finesse: Vec<String>, piece: Mino },
+    Path {
+        finesse: Vec<String>,
+        piece: Mino,
+        spin: Spin,
+    },
 }

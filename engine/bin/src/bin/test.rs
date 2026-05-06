@@ -1,3 +1,5 @@
+pub mod train;
+
 use std::time::Instant;
 
 use engine_ai::{beam::Beam, model::Model};
@@ -6,7 +8,7 @@ use engine_nav::{game::Game, keyfinder};
 use engine_rng::rng::Rng;
 
 pub fn main() {
-    let m = Model::new();
+    let m = Model::default();
     println!("{}", fitness(&m, 5.0, 1000));
 }
 
@@ -16,7 +18,7 @@ pub fn fitness(model: &Model, target_pps: f32, max_pieces: usize) -> f32 {
         board: Board::new(),
         combo: -1,
         hold: None,
-        incoming_garbage: 0,
+        incoming_garbage: vec![],
     };
     let mut queue = vec![];
     let mut r = Rng::new_unseeded();

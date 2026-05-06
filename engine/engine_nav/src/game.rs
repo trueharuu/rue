@@ -11,7 +11,7 @@ pub struct Game {
     pub hold: Option<Mino>,
     pub b2b: i16,
     pub combo: i8,
-    pub incoming_garbage: u16,
+    pub incoming_garbage: Vec<u8>,
 }
 
 impl Game {
@@ -21,12 +21,16 @@ impl Game {
             hold: None,
             b2b: -1,
             combo: -1,
-            incoming_garbage: 0,
+            incoming_garbage: Vec::new(),
         }
     }
 
     pub fn is_pc(&self) -> bool {
         self.board.fold_or() == 0
+    }
+
+    pub fn total_garbage(&self) -> u16 {
+        self.incoming_garbage.iter().sum::<u8>() as u16
     }
 
     pub fn advance(&mut self, next: Mino, loc: &PieceLocation) -> PlacementInfo {
@@ -71,8 +75,8 @@ impl Game {
                 },
                 self.combo,
             );
-            info.outgoing_attack = attack.saturating_sub(self.incoming_garbage);
-            self.incoming_garbage = self.incoming_garbage.saturating_sub(attack);
+            info.outgoing_attack = attack.saturating_sub(self.total_garbage());
+            remove_gb(&mut self.incoming_garbage, attack as u8);
 
             if info.b2b_clear {
                 self.b2b += 1;
@@ -83,11 +87,12 @@ impl Game {
         } else {
             self.combo = -1;
 
-            let lines = self.incoming_garbage.min(8);
-            self.board
-                .add_garbage(Rng::new(0).sample(0usize..10), lines);
-            self.incoming_garbage -= lines;
-            info.lines_received = lines;
+            let lines = remove_gb(&mut self.incoming_garbage, 8);
+            info.lines_received = lines.iter().sum::<u8>() as u16;
+            for line in lines {
+                self.board
+                    .add_garbage(Rng::new(0).sample(0usize..10), line as u16);
+            }
         }
         info
     }
@@ -147,4 +152,19 @@ impl Game {
             y: 21,
         })
     }
+}
+
+fn remove_gb(gb_queue: &mut Vec<u8>, mut amt: u8) -> Vec<u8> {
+    let mut removed = Vec::new();
+    while amt > 0 && !gb_queue.is_empty() {
+        let first = gb_queue[0];
+        if first <= amt {
+            removed.insert(0, gb_queue.remove(0));
+        } else {
+            removed.insert(0, amt);
+            gb_queue[0] -= amt;
+            amt = 0;
+        }
+    }
+    removed
 }

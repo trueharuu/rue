@@ -203,22 +203,6 @@ export const disable = new Command(
     },
 );
 
-export const credits = new Command(
-    {
-        name: "credits",
-        aliases: [],
-        description: "shows credits",
-        permission: PermissionLevel.None,
-        arguments: {},
-        flags: {},
-    },
-    async (ctx) => {
-        await ctx.reply(
-            "mina: main developer\nusm: most of the 1st iteration of this project\nhalp: triangle.js library\nalgebruh: early planning ideas",
-        );
-    },
-);
-
 export const settings = new Command(
     {
         name: "settings",

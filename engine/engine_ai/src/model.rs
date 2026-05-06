@@ -40,6 +40,10 @@ pub struct Model {
     pub waste: [i32; 7],
     pub incoming_garbage: i32,
     pub outgoing_garbage: i32,
+    pub b2b_cap: i32,
+    pub broke_surge: i32,
+
+    pub name: String,
     // pub kpp: i32,
 }
 
@@ -47,8 +51,8 @@ pub const COMBO_GARBAGE: [u16; 21] = [
     0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3,
 ];
 
-impl Model {
-    pub fn new() -> Self {
+impl Default for Model {
+    fn default() -> Self {
         Self {
             back_to_back: 200,
             bumpiness: -24,
@@ -72,20 +76,29 @@ impl Model {
             clear: [-143, -100, -58, 390],
             spin: [0, 121, 999, 602],
             spin_mini: [0, -158, -93, -600],
-            perfect_clear: 500,
+            perfect_clear: 999,
             combo_garbage: 150,
             incoming_garbage: -5,
-            outgoing_garbage: 10,
+            outgoing_garbage: 100,
+            name: "default".to_string(),
             // kpp: -10000,
+            b2b_cap: 8,
+            broke_surge: 50,
         }
     }
+}
 
+impl Model {
     pub fn evaluate(&self, game: &Game, info: &PlacementInfo) -> (Value, Reward) {
         let mut te = 0;
         let mut ae = 0;
 
-        te += self.incoming_garbage * game.incoming_garbage as i32;
+        te += self.incoming_garbage * game.total_garbage() as i32;
         ae += self.outgoing_garbage * info.outgoing_attack as i32;
+
+        if info.broke_surge {
+            ae += game.b2b as i32 * self.broke_surge;
+        }
 
         if game.is_pc() {
             ae += self.perfect_clear;
@@ -121,9 +134,7 @@ impl Model {
             }
         }
 
-        if game.b2b >= 0 {
-            te += self.back_to_back * game.b2b as i32;
-        }
+        te += self.back_to_back * game.b2b.min(self.b2b_cap as i16) as i32;
 
         match (info.mino, info.loc.spin) {
             (_, Spin::Mini | Spin::Full) => {}
@@ -274,4 +285,25 @@ fn covered_cells(board: &Board) -> (i32, i32) {
     }
 
     (covered, covered_sq)
+}
+
+pub fn concentration(gb: &[u8]) -> f32 {
+    if gb.is_empty() {
+        return 0.0;
+    }
+
+    let sum: f32 = gb.iter().map(|&x| x as f32).sum();
+    if sum == 0.0 {
+        return 0.0;
+    }
+
+    let sum_sq: f32 = gb
+        .iter()
+        .map(|&x| {
+            let x = x as f32;
+            x * x
+        })
+        .sum();
+
+    sum_sq / (sum * sum)
 }

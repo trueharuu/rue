@@ -95,7 +95,7 @@ export class Connection {
     public engine_options: EngineOptions = {
         pps: 3,
         vision: 7,
-        finesse: FinesseType.Instant,
+        finesse: FinesseType.Human,
     };
     public constructor(
         public src: Main,

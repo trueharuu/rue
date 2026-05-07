@@ -1,8 +1,5 @@
 use std::str::FromStr;
 
-use engine_ai::{beam::Beam, model::Model};
-use engine_core::{board::Board, display::render, piece::Mino, spin::Spin};
-use engine_nav::{game::Game, keyfinder::keygen};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -58,13 +55,13 @@ impl Conn {
             if self.done {
                 return;
             }
-            eprintln!("block A");
+            // eprintln!("block A");
             let request = self.recv().await;
-            eprintln!("block B");
+            // eprintln!("block B");
             let response = self.handle_one(request).await;
-            eprintln!("block C");
+            // eprintln!("block C");
             self.send(response).await;
-            eprintln!("block D");
+            // eprintln!("block D");
         }
     }
 
@@ -102,39 +99,14 @@ impl Conn {
             Request::Setup => Response::Setup,
             Request::Path {
                 board,
-                hold,
-                queue,
+                // hold,
+                // queue,
                 combo,
                 b2b,
                 incoming_garbage,
             } => {
-                let game = Game {
-                    board: Board::from_str(&board).unwrap(),
-                    hold,
-                    combo,
-                    b2b: b2b,
-                    incoming_garbage,
-                };
 
-                let model = Model::default();
-                let beam = Beam::new(&game, &model, queue.len(), 500);
-                let path = beam.search(&queue);
-
-                match path {
-                    Some(path) => {
-                        let Some(keys) = keygen(&game.board, &path, true) else {
-                            return Response::Fail("dead".to_string());
-                        };
-
-                        render(&game.board, Some(path.clone()));
-                        Response::Path {
-                            finesse: keys.iter().map(|x| x.to_string()).collect(),
-                            piece: path.piece,
-                            spin: path.spin,
-                        }
-                    }
-                    None => Response::Fail("dead".to_string()),
-                }
+                Response::Fail("dead".to_string())
             }
             Request::Exit => {
                 self.done = true;
@@ -153,8 +125,6 @@ pub enum Request {
     Exit,
     Path {
         board: String,
-        hold: Option<Mino>,
-        queue: Vec<Mino>,
         combo: i8,
         b2b: i16,
         incoming_garbage: Vec<u8>,
@@ -170,7 +140,7 @@ pub enum Response {
     Fail(String),
     Path {
         finesse: Vec<String>,
-        piece: Mino,
-        spin: Spin,
+        // piece: Mino,
+        // spin: Spin,
     },
 }

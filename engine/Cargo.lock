@@ -13,10 +13,6 @@ name = "bin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "engine_ai",
- "engine_core",
- "engine_nav",
- "engine_rng",
  "rand",
  "rayon",
 ]
@@ -91,49 +87,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
-name = "engine_ai"
-version = "0.1.0"
-dependencies = [
- "engine_core",
- "engine_nav",
- "engine_rng",
- "rand",
- "rayon",
-]
-
-[[package]]
-name = "engine_core"
-version = "0.1.0"
-dependencies = [
- "engine_rng",
- "serde",
-]
-
-[[package]]
 name = "engine_ipc"
 version = "0.1.0"
 dependencies = [
- "engine_ai",
- "engine_core",
- "engine_nav",
  "futures",
  "serde",
  "serde_json",
  "tokio",
 ]
-
-[[package]]
-name = "engine_nav"
-version = "0.1.0"
-dependencies = [
- "engine_core",
- "engine_rng",
- "serde",
-]
-
-[[package]]
-name = "engine_rng"
-version = "0.1.0"
 
 [[package]]
 name = "equivalent"

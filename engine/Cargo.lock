@@ -13,6 +13,10 @@ name = "bin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "engine_core",
+ "engine_eval",
+ "engine_nav",
+ "engine_search",
  "rand",
  "rayon",
 ]
@@ -87,13 +91,48 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "engine_core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "engine_eval"
+version = "0.1.0"
+dependencies = [
+ "engine_core",
+]
+
+[[package]]
 name = "engine_ipc"
 version = "0.1.0"
 dependencies = [
+ "engine_core",
+ "engine_eval",
+ "engine_nav",
+ "engine_search",
  "futures",
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "engine_nav"
+version = "0.1.0"
+dependencies = [
+ "engine_core",
+]
+
+[[package]]
+name = "engine_search"
+version = "0.1.0"
+dependencies = [
+ "engine_core",
+ "engine_eval",
+ "engine_nav",
+ "smallvec",
 ]
 
 [[package]]

@@ -18,7 +18,7 @@ export class Main {
     public connections: Map<string, Connection> = new Map();
     public main!: Client;
     public cluster!: Bun.Subprocess;
-    public constructor(public readonly cfg: Cfg) {}
+    public constructor(public readonly cfg: Cfg) { }
 
     public async spawn_cluster() {
         await this.ensure_exists();
@@ -161,7 +161,8 @@ export class Connection {
                 t.engine.queue.minLength = 100;
                 assert(this.engine);
 
-                return await this.engine.tick(t);
+                let z = await this.engine.tick(t);
+                return z;
             });
         });
 
@@ -179,15 +180,15 @@ export class Connection {
             if (c.bracket === "player" && !this.enabled) {
                 try {
                     await this.client.room?.switch("spectator");
-                } catch (_e) {}
+                } catch (_e) { }
             } else if (c.bracket === "spectator" && this.enabled) {
                 try {
                     await this.client.room?.switch("player");
-                } catch (_e) {}
+                } catch (_e) { }
             }
         });
 
-        this.client.on("room.update", async (_c) => {});
+        this.client.on("room.update", async (_c) => { });
 
         this.client.on("room.chat", async (c) => {
             for (const name in commands) {

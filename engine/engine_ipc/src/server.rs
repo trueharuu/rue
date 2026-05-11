@@ -1,5 +1,4 @@
-use std::str::FromStr;
-
+use engine_core::{board::Board, game::GameState, piece::Piece};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -94,17 +93,25 @@ impl Conn {
             return Response::Exit;
         };
         eprintln!("RECV {request:?}");
+
         match request {
             Request::Ping => Response::Pong,
             Request::Setup => Response::Setup,
             Request::Path {
                 board,
-                // hold,
-                // queue,
+                hold,
+                queue,
                 combo,
                 b2b,
+                current,
                 incoming_garbage,
             } => {
+                let b = dec_board(board);
+                let mut g = GameState::new(b.clone(), current, queue.to_vec());
+                g.hold = hold;
+                g.b2b = b2b.max(0) as u8;
+                g.combo = combo.max(0) as u32;
+                g.pending_garbage = incoming_garbage;
 
                 Response::Fail("dead".to_string())
             }
@@ -117,7 +124,7 @@ impl Conn {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(tag = "packet", content = "data")]
 pub enum Request {
     Ping,
@@ -127,7 +134,10 @@ pub enum Request {
         board: String,
         combo: i8,
         b2b: i16,
-        incoming_garbage: Vec<u8>,
+        incoming_garbage: u8,
+        hold: Option<Piece>,
+        current: Piece,
+        queue: Vec<Piece>,
     },
 }
 
@@ -140,7 +150,19 @@ pub enum Response {
     Fail(String),
     Path {
         finesse: Vec<String>,
-        // piece: Mino,
+        piece: Piece,
         // spin: Spin,
     },
+}
+
+pub fn dec_board(s: String) -> Board {
+    let mut board = Board::new();
+    for (y, line) in s.split('|').enumerate() {
+        for (x, c) in line.chars().enumerate() {
+            if c == 'X' {
+                board.set(x, y);
+            }
+        }
+    }
+    board
 }

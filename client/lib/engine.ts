@@ -132,11 +132,12 @@ export class Engine {
             packet: "Path",
             data: {
                 hold,
-                queue: [active, ...next_queue],
+                current: active,
+                queue: next_queue,
                 combo,
                 board,
                 b2b: engine.stats.b2b,
-                incoming_garbage: engine.garbageQueue.queue.map((x) => x.size),
+                incoming_garbage: engine.garbageQueue.size,
             },
         })) as Packet;
 
@@ -150,12 +151,10 @@ export class Engine {
         }
 
         const is_held = active.toLowerCase() !== piece.toLowerCase();
-        if (is_held) {
-            finesse.unshift("hold");
-        }
-        if (finesse.length === 1) {
-            finesse.unshift("softDrop");
-        }
+        // if (is_held) {
+        //     finesse.unshift("hold");
+        // }
+        
 
         return finesse;
     }

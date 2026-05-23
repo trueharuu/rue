@@ -19,38 +19,24 @@ pub fn column_heights(board: &Board) -> [usize; COL_NB] {
 
 #[inline]
 #[must_use]
-pub fn holes_and_covered(board: &Board, heights: &[usize; COL_NB]) -> (i32, i32) {
-    let mut holes = 0i32;
-    let mut covered = 0i32;
+pub fn covered_cells(board: &Board, heights: &[usize; COL_NB]) -> (i32, i32) {
+    let mut covered = 0;
+    let mut covered_sq = 0;
 
-    for (x, &h) in heights.iter().enumerate() {
-        if h == 0 {
+    for x in 0..10 {
+        if heights[x] <= 2 {
             continue;
         }
-
-        let mut topmost_hole: Option<usize> = None;
-        for y in (0..h).rev() {
+        for y in (0..heights[x] - 2).rev() {
             if !board.occupied(x as i32, y as i32) {
-                holes += 1;
-                if topmost_hole.is_none() {
-                    topmost_hole = Some(y);
-                }
+                let cells = 6.min(heights[x] - y - 1) as i32;
+                covered += cells;
+                covered_sq += cells * cells;
             }
-        }
-
-        if let Some(hole_y) = topmost_hole {
-            let mut cov = 0i32;
-            for y in (hole_y + 1)..h {
-                if board.occupied(x as i32, y as i32) {
-                    cov += 1;
-                }
-            }
-
-            covered += cov.min(6);
         }
     }
 
-    (holes, covered)
+    (covered, covered_sq)
 }
 
 #[inline]
@@ -157,19 +143,53 @@ pub fn row_transitions(board: &Board, max_height: usize) -> i32 {
         if row == 0 {
             continue;
         }
-        
+
         let shifted = row >> 1;
         let xor = row ^ shifted;
-        
+
         total += (xor & 0x1FF).count_ones() as i32;
-        
+
         if row & 1 == 0 {
             total += 1;
         }
-        
+
         if row & (1 << 9) == 0 {
             total += 1;
         }
     }
     total
+}
+
+pub fn holes_and_covered(board: &Board, heights: &[usize; COL_NB]) -> (i32, i32) {
+    let mut holes = 0i32;
+    let mut covered = 0i32;
+
+    for (x, &h) in heights.iter().enumerate() {
+        if h == 0 {
+            continue;
+        }
+
+        let mut topmost_hole = None;
+        for y in (0..h).rev() {
+            if !board.occupied(x as i32, y as i32) {
+                holes += 1;
+                if topmost_hole.is_none() {
+                    topmost_hole = Some(y);
+                }
+            }
+        }
+
+        if let Some(hole_y) = topmost_hole {
+            let mut cov = 0;
+            for y in (hole_y + 1)..h {
+                if board.occupied(x as i32, y as i32) {
+                    cov += 1;
+                }
+            }
+
+            covered += cov.min(6);
+        }
+    }
+
+    (holes, covered)
 }

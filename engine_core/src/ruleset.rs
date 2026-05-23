@@ -52,7 +52,7 @@ pub enum ComboTable {
     None,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct AttackConfig {
     pub pc_garbage: u8,
     pub pc_b2b: u8,
@@ -169,10 +169,10 @@ pub fn calculate_attack(
     spin: SpinType,
     b2b: u8,
     combo: u8,
-    config: &AttackConfig,
+    config: AttackConfig,
     is_perfect_clear: bool,
 ) -> f32 {
-    calculate_attack_full(&AttackContext {
+    calculate_attack_full(AttackContext {
         lines,
         spin,
         b2b,
@@ -184,13 +184,12 @@ pub fn calculate_attack(
     })
 }
 
-/// Parameters for the extended attack calculation.
-pub struct AttackContext<'a> {
+pub struct AttackContext {
     pub lines: u8,
     pub spin: SpinType,
     pub b2b: u8,
     pub combo: u8,
-    pub config: &'a AttackConfig,
+    pub config: AttackConfig,
     pub is_perfect_clear: bool,
     /// If Some(prev_b2b) and prev_b2b >= 4, a non-difficult clear just broke
     /// a long B2B chain — release stored surge as bonus attack.
@@ -200,7 +199,7 @@ pub struct AttackContext<'a> {
 }
 
 /// Extended attack calculation with surge release and garbage clear boost.
-pub fn calculate_attack_full(ctx: &AttackContext<'_>) -> f32 {
+pub fn calculate_attack_full(ctx: AttackContext) -> f32 {
     let AttackContext {
         lines,
         spin,
@@ -210,7 +209,7 @@ pub fn calculate_attack_full(ctx: &AttackContext<'_>) -> f32 {
         is_perfect_clear,
         b2b_broken_from,
         clears_garbage,
-    } = *ctx;
+    } = ctx;
     if lines == 0 {
         return 0.0;
     }

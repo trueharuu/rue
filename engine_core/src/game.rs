@@ -3,7 +3,7 @@ use crate::{
     data::SPAWN_COL,
     piece::Piece,
     placement::Move,
-    ruleset::{self, AttackConfig, ACTIVE_RULES},
+    ruleset::{self, ACTIVE_RULES, AttackConfig, AttackContext},
     spin::SpinType,
 };
 
@@ -16,10 +16,11 @@ pub struct Game {
     pub b2b: u8,
     pub combo: u32,
     pub pending_garbage: u8,
+    pub config: AttackConfig,
 }
 
 impl Game {
-    pub fn new(board: Board, current: Piece, queue: Vec<Piece>) -> Self {
+    pub fn new(board: Board, current: Piece, queue: Vec<Piece>, config: AttackConfig) -> Self {
         Self {
             board,
             current,
@@ -28,6 +29,7 @@ impl Game {
             b2b: 0,
             combo: 0,
             pending_garbage: 0,
+            config,
         }
     }
 
@@ -70,14 +72,24 @@ impl Game {
             .any(|(x, y)| board.obstructed(*x, *y) || board.occupied(*x, *y))
     }
 
-    pub fn advance(&mut self, m: &Move) -> u8 {
+    pub fn advance(&mut self, m: &Move) -> (AttackContext, u8) {
         let lc = self.board.do_move(m);
+        let ctx = AttackContext {
+            lines: lc as u8,
+            b2b: self.b2b,
+            combo: self.combo as u8,
+            spin: m.spin(),
+            b2b_broken_from: None,
+            clears_garbage: false,
+            config: self.config,
+            is_perfect_clear: self.board.is_empty(),
+        };
         let mut outgoing = ruleset::calculate_attack(
             lc as u8,
             m.spin(),
             self.b2b,
             self.combo as u8,
-            &AttackConfig::tetra_league(),
+            self.config,
             self.board.is_empty(),
         ) as u8;
 
@@ -133,6 +145,6 @@ impl Game {
             self.current = self.queue.remove(0);
         }
 
-        outgoing
+        (ctx, outgoing)
     }
 }

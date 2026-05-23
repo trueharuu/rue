@@ -1,4 +1,4 @@
-use engine_core::game::Game;
+use engine_core::{game::Game, ruleset::AttackContext};
 use engine_core::placement::Move;
 use engine_eval::Model;
 use engine_nav::{buffer::MoveBuffer, movegen};
@@ -54,12 +54,13 @@ struct BeamNode {
     root_move: Move,
 }
 
+
 fn expand_root(game: &Game, model: &Model) -> Vec<BeamNode> {
     let mut nodes = Vec::new();
     let moves = generate_moves(game);
     for m in moves.iter() {
-        if let Some(next) = apply_move(game, *m) {
-            let score = model.eval(&next, m);
+        if let Some((next, ctx, _)) = apply_move(game, *m) {
+            let score = model.eval(&next, m, &ctx);
             nodes.push(BeamNode {
                 game: next,
                 score,
@@ -73,8 +74,8 @@ fn expand_root(game: &Game, model: &Model) -> Vec<BeamNode> {
 fn expand_node(node: &BeamNode, model: &Model, out: &mut Vec<BeamNode>) {
     let moves = generate_moves(&node.game);
     for m in moves.iter() {
-        if let Some(next) = apply_move(&node.game, *m) {
-            let score = model.eval(&next, m);
+        if let Some((next, ctx, _)) = apply_move(&node.game, *m) {
+            let score = model.eval(&next, m, &ctx);
             out.push(BeamNode {
                 game: next,
                 score,
@@ -101,14 +102,14 @@ fn generate_moves(game: &Game) -> MoveBuffer {
     moves
 }
 
-fn apply_move(game: &Game, m: Move) -> Option<Game> {
+fn apply_move(game: &Game, m: Move) -> Option<(Game, AttackContext, u8)> {
     if !has_queue_for_move(game, m) {
         return None;
     }
 
     let mut next = game.clone();
-    next.advance(&m);
-    Some(next)
+    let (ctx, outgoing) = next.advance(&m);
+    Some((next, ctx, outgoing))
 }
 
 fn has_queue_for_move(game: &Game, m: Move) -> bool {

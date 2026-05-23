@@ -1,10 +1,14 @@
 use crate::{
-    board::Board, data::SPAWN_COL, piece::Piece, placement::Move, ruleset::ACTIVE_RULES,
+    board::Board,
+    data::SPAWN_COL,
+    piece::Piece,
+    placement::Move,
+    ruleset::{self, AttackConfig, ACTIVE_RULES},
     spin::SpinType,
 };
 
 #[derive(Clone)]
-pub struct GameState {
+pub struct Game {
     pub board: Board,
     pub current: Piece,
     pub hold: Option<Piece>,
@@ -12,12 +16,9 @@ pub struct GameState {
     pub b2b: u8,
     pub combo: u32,
     pub pending_garbage: u8,
-    pub lines_total: u32,
-    pub bag_number: u32,
-    pub pieces_into_bag: u8,
 }
 
-impl GameState {
+impl Game {
     pub fn new(board: Board, current: Piece, queue: Vec<Piece>) -> Self {
         Self {
             board,
@@ -27,9 +28,6 @@ impl GameState {
             b2b: 0,
             combo: 0,
             pending_garbage: 0,
-            lines_total: 0,
-            bag_number: 0,
-            pieces_into_bag: 0,
         }
     }
 
@@ -72,8 +70,33 @@ impl GameState {
             .any(|(x, y)| board.obstructed(*x, *y) || board.occupied(*x, *y))
     }
 
-    pub fn advance(&mut self, m: &Move) {
+    pub fn advance(&mut self, m: &Move) -> u8 {
         let lc = self.board.do_move(m);
+        let mut outgoing = ruleset::calculate_attack(
+            lc as u8,
+            m.spin(),
+            self.b2b,
+            self.combo as u8,
+            &AttackConfig::tetra_league(),
+            self.board.is_empty(),
+        ) as u8;
+
+        if self.pending_garbage > 0 {
+            // 3 cases
+            // outgoing > incoming, send difference and reset pending
+            // outgoing == incoming, both 0
+            // outgoing < incoming, send 0 and reduce pending by outgoing
+            if outgoing >= self.pending_garbage {
+                self.pending_garbage = 0;
+                outgoing -= self.pending_garbage;
+            } else if outgoing < self.pending_garbage {
+                self.pending_garbage -= outgoing;
+                outgoing = 0;
+            } else {
+                outgoing = 0;
+                self.pending_garbage = 0;
+            }
+        }
 
         if lc > 0 {
             let next_b2b = if m.spin() != SpinType::NoSpin || lc == 4 {
@@ -85,6 +108,15 @@ impl GameState {
 
             self.b2b = next_b2b;
             self.combo = next_combo;
+        } else {
+            const CAP: u8 = 8;
+            let removed = self.pending_garbage.min(CAP);
+            self.pending_garbage -= removed;
+
+            if removed > 0 {
+                self.board
+                    .spawn_garbage(removed as i32, rand::random_range(0..10));
+            }
         }
 
         let should_hold = self.infer_hold_used_for_piece(m.piece());
@@ -100,5 +132,7 @@ impl GameState {
         } else {
             self.current = self.queue.remove(0);
         }
+
+        outgoing
     }
 }

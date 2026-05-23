@@ -1,4 +1,4 @@
-use engine_core::{board::Board, game::GameState, piece::Piece};
+use engine_core::{board::Board, game::Game, piece::Piece};
 use serde::{Deserialize, Serialize};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
@@ -107,7 +107,7 @@ impl Conn {
                 incoming_garbage,
             } => {
                 let b = dec_board(board);
-                let mut g = GameState::new(b.clone(), current, queue.to_vec());
+                let mut g = Game::new(b.clone(), current, queue.to_vec());
                 g.hold = hold;
                 g.b2b = b2b.max(0) as u8;
                 g.combo = combo.max(0) as u32;

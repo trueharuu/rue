@@ -7,6 +7,7 @@ edition = "2024"
 engine_core = { version = "0.1.0", path = "../engine_core" }
 engine_eval = { version = "0.1.0", path = "../engine_eval" }
 engine_nav = { version = "0.1.0", path = "../engine_nav" }
+rayon = "1.12.0"
 smallvec = "1.15.1"
 
 [lints]

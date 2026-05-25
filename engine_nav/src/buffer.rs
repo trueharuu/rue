@@ -24,6 +24,11 @@ impl MoveBuffer {
     }
 
     #[inline]
+    pub fn clear(&mut self) {
+        self.len = 0;
+    }
+
+    #[inline]
     pub fn push(&mut self, m: Move) {
         assert!(self.len < MAX_MOVES, "move buffer capacity exceeded");
         self.data[self.len] = m;

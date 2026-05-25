@@ -133,6 +133,7 @@ dependencies = [
  "engine_core",
  "engine_eval",
  "engine_nav",
+ "rayon",
  "smallvec",
 ]
 

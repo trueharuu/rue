@@ -2,6 +2,7 @@ use engine_core::{
     board::{Board, render_vs},
     game::Game,
     piece::ALL_PIECES,
+    queue::Queue,
     ruleset::AttackConfig,
 };
 use engine_eval::{Model, active::ActiveModel, board::BoardModel};
@@ -24,72 +25,74 @@ pub enum MatchResult {
 pub struct GlobalConfig {
     pub depth: usize,
     pub width: usize,
+    pub target_ms: Option<u64>,
 }
 
 pub fn main() {
     let cfg = GlobalConfig {
         depth: 7,
-        width: 250,
+        width: 5000,
+        target_ms: Some(1000),
     };
     let left = Model {
         board: BoardModel {
-            height: 0.7000000000000001,
-            height_half: -0.20000000000000004,
-            height_quar: -3.2999999999999994,
-            holes: -3.1,
-            cell_coveredness: -0.09999999999999998,
-            bumpiness: 0.30000000000000004,
-            bumpiness_sq: -0.5000000000000001,
-            row_transitions: -1.2,
+            height: 2.3000000000000007,
+            height_half: -0.4,
+            height_quar: -3.8999999999999995,
+            holes: -0.6999999999999993,
+            cell_coveredness: -0.9,
+            bumpiness: 2.500000000000001,
+            bumpiness_sq: -0.6999999999999997,
+            row_transitions: -3.000000000000001,
             well_column: [
-                -0.23493245468668988,
-                -1.0,
-                0.28588165386343267,
-                2.1880127933527347,
-                0.12574325617873364,
-                -0.49309820190995224,
-                2.053785684928208,
-                0.29023439663627143,
-                -1.041909318975018,
-                0.08488948281316683,
+                -0.011274052474416492,
+                -0.7827282451124764,
+                0.5691098193187347,
+                2.1615107162015796,
+                -0.27909013341441835,
+                -0.7346236920410344,
+                2.471477678790465,
+                0.32949267025451073,
+                -1.1862237399454896,
+                -0.057460837153199,
             ],
-            well_depth: -0.6000000000000001,
-            incoming_garbage: -1.5999999999999996,
-            tsd_overhangs: 4.9,
+            well_depth: 0.7999999999999999,
+            incoming_garbage: -5.299999999999996,
+            tsd_overhangs: 3.599999999999999,
         },
         active: ActiveModel {
             waste: [
-                -0.06838496425855684,
-                0.04343228270537561,
-                -0.12792381038432626,
-                0.0,
-                -0.22691531202267004,
-                0.0539578605591538,
-                -0.14909853092930536,
+                -0.1255365479342755,
+                -0.2883110096022584,
+                0.12297061592198662,
+                -0.3802643165097589,
+                -0.19738539724685844,
+                -0.24564533224096047,
+                0.17499045430089216,
             ],
             clear: [
-                -0.09457799295287939,
-                -1.1203486324123277,
-                -0.8727972827529278,
-                -0.9529601509372329,
-                4.053935946771951,
+                -0.10145846311876575,
+                -1.2647952236498041,
+                -1.158568072070674,
+                -0.25494713207436015,
+                4.569196931038301,
             ],
             clear_mini: [
-                -0.6107870748642772,
-                0.5085022877672654,
-                0.523645497923773,
-                -0.9463716800468318,
+                -0.18505317090427725,
+                0.33232540075553363,
+                0.7104492604423174,
+                -1.6107147452979436,
             ],
             clear_spin: [
-                -0.25196715675900316,
-                -0.45406037187276316,
-                0.9652149173843194,
-                -0.5539153249904268,
+                0.06958488507706678,
+                -0.24153952134963516,
+                1.5932260858824852,
+                -0.5052230771393342,
             ],
-            b2b: 2.400000000000001,
-            combo: 3.1,
-            in_multiplier: 0.9999999999999999,
-            perfect_clear: 3.1,
+            b2b: 6.299999999999993,
+            combo: 4.4,
+            in_multiplier: 1.6999999999999997,
+            perfect_clear: 1.6999999999999997,
         },
         board_weight: 1.0,
         active_weight: 1.0,
@@ -98,7 +101,7 @@ pub fn main() {
     let right = Model {
         active: ActiveModel {
             waste: [0.0; 7],
-            clear: [0.0; 5],
+            clear: [0.0, 0.0, 0.0, 0.0, 0.0],
             clear_mini: [0.0; 4],
             clear_spin: [0.0; 4],
             b2b: 0.0,
@@ -108,8 +111,8 @@ pub fn main() {
         },
         board: BoardModel {
             height: -0.1,
-            height_half: -0.2,
-            height_quar: -0.5,
+            height_half: 0.0,
+            height_quar: 0.0,
 
             holes: 0.0,
             cell_coveredness: 0.0,
@@ -133,7 +136,7 @@ pub fn main() {
         let mut queue_l = vec![];
         let mut queue_r = vec![];
 
-        for _ in 0..100 {
+        for _ in 0..9 {
             let mut bag = ALL_PIECES;
             bag.shuffle(&mut rng);
 
@@ -144,49 +147,47 @@ pub fn main() {
         let mut game_l = Game::new(
             Board::new(),
             queue_l[0],
-            queue_l[1..].to_vec(),
+            Queue::from_slice(&queue_l[1..]),
             AttackConfig::tetra_league(),
         );
         let mut game_r = Game::new(
             Board::new(),
             queue_r[0],
-            queue_r[1..].to_vec(),
+            Queue::from_slice(&queue_r[1..]),
             AttackConfig::tetra_league(),
         );
 
+        let mut n = 1;
         loop {
             // left move
-            let config_l = SearchConfig {
-                model: left,
-                width: cfg.width,
-                depth: cfg.depth,
-            };
+            let config_l = SearchConfig::new(left, cfg.width, cfg.depth, cfg.target_ms);
 
             let beam_l = Beam { config: config_l };
+
+            let i = std::time::Instant::now();
             let Some(result_l) = beam_l.search(&game_l) else {
                 println!("{:?}", MatchResult::Right);
                 score_r += 1;
                 break;
             };
+            let el_l = i.elapsed();
 
-            let board_l = game_l.board.clone();
+            let board_l = game_l.board;
             let self_l = game_l.advance(&result_l.best_move);
 
             // right move
-            let config_r = SearchConfig {
-                model: right,
-                width: cfg.width,
-                depth: cfg.depth,
-            };
+            let config_r = SearchConfig::new(right, cfg.width, cfg.depth, cfg.target_ms);
 
+            let i = std::time::Instant::now();
             let beam_r = Beam { config: config_r };
             let Some(result_r) = beam_r.search(&game_r) else {
                 println!("{:?}", MatchResult::Left);
                 score_l += 1;
                 break;
             };
+            let el_r = i.elapsed();
 
-            let board_r = game_r.board.clone();
+            let board_r = game_r.board;
 
             render_vs(
                 &board_l,
@@ -194,7 +195,12 @@ pub fn main() {
                 Some(result_l.best_move),
                 Some(result_r.best_move),
             );
-            println!("{score_l}-{score_r}");
+            println!(
+                "{score_l:>3}-{score_r:<3} | n={n:>3} | {el_l:.3?} ({:.3}pps), {el_r:.3?} ({:.3}pps)",
+                1.0 / el_l.as_secs_f64(),
+                1.0 / el_r.as_secs_f64()
+            );
+            n += 1;
             // println!("{:+.4} vs. {:+.4}", result_l.score, result_r.score);
 
             let send_r = game_r.advance(&result_r.best_move);

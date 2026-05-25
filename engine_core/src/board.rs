@@ -9,6 +9,7 @@ pub const ROW_NB: usize = 40;
 pub const BOARD_HEIGHT: usize = 40;
 pub const FULL_ROW: u16 = (1 << COL_NB) - 1; // 0x3FF
 
+#[derive(Copy, Debug, PartialEq, Eq)]
 pub struct Board {
     pub rows: [u16; BOARD_HEIGHT],
     pub cols: [Bitboard; COL_NB],
@@ -247,12 +248,7 @@ pub const fn is_ok_y(y: i32) -> bool {
 }
 
 impl Clone for Board {
-    fn clone(&self) -> Self {
-        Board {
-            rows: self.rows,
-            cols: self.cols,
-        }
-    }
+    fn clone(&self) -> Self { *self }
 }
 
 impl Default for Board {

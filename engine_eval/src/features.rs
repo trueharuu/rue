@@ -23,13 +23,13 @@ pub fn covered_cells(board: &Board, heights: &[usize; COL_NB]) -> (i32, i32) {
     let mut covered = 0;
     let mut covered_sq = 0;
 
-    for x in 0..10 {
-        if heights[x] <= 2 {
+    for (x, &h) in heights.iter().enumerate().take(10) {
+        if h <= 2 {
             continue;
         }
-        for y in (0..heights[x] - 2).rev() {
+        for y in (0..h - 2).rev() {
             if !board.occupied(x as i32, y as i32) {
-                let cells = 6.min(heights[x] - y - 1) as i32;
+                let cells = 6.min(h - y - 1) as i32;
                 covered += cells;
                 covered_sq += cells * cells;
             }
@@ -160,6 +160,8 @@ pub fn row_transitions(board: &Board, max_height: usize) -> i32 {
     total
 }
 
+#[inline]
+#[must_use] 
 pub fn holes_and_covered(board: &Board, heights: &[usize; COL_NB]) -> (i32, i32) {
     let mut holes = 0i32;
     let mut covered = 0i32;

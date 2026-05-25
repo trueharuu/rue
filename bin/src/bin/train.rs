@@ -1,10 +1,7 @@
 use std::sync::atomic::AtomicU32;
 
 use engine_core::{
-    board::{Board, render_vs},
-    game::Game,
-    piece::ALL_PIECES,
-    ruleset::AttackConfig,
+    board::Board, game::Game, piece::ALL_PIECES, queue::Queue, ruleset::AttackConfig,
 };
 use engine_eval::{Model, active::ActiveModel, board::BoardModel};
 use engine_search::{beam::Beam, config::SearchConfig};
@@ -37,7 +34,7 @@ pub fn play_match(cfg: &GlobalConfig, red: &Model, blue: &Model) -> MatchResult 
     let mut queue_l = vec![];
     let mut queue_r = vec![];
 
-    for _ in 0..100 {
+    for _ in 0..9 {
         let mut bag = ALL_PIECES;
         bag.shuffle(&mut rng);
 
@@ -48,23 +45,19 @@ pub fn play_match(cfg: &GlobalConfig, red: &Model, blue: &Model) -> MatchResult 
     let mut game_l = Game::new(
         Board::new(),
         queue_l[0],
-        queue_l[1..].to_vec(),
+        Queue::from_slice(&queue_l[1..]),
         AttackConfig::tetra_league(),
     );
     let mut game_r = Game::new(
         Board::new(),
         queue_r[0],
-        queue_r[1..].to_vec(),
+        Queue::from_slice(&queue_r[1..]),
         AttackConfig::tetra_league(),
     );
 
     loop {
         // left move
-        let config_l = SearchConfig {
-            model: *red,
-            width: cfg.width,
-            depth: cfg.depth,
-        };
+        let config_l = SearchConfig::new(*red, cfg.width, cfg.depth, None);
 
         let beam_l = Beam { config: config_l };
         let Some(result_l) = beam_l.search(&game_l) else {
@@ -75,11 +68,7 @@ pub fn play_match(cfg: &GlobalConfig, red: &Model, blue: &Model) -> MatchResult 
         let self_l = game_l.advance(&result_l.best_move);
 
         // right move
-        let config_r = SearchConfig {
-            model: *blue,
-            width: cfg.width,
-            depth: cfg.depth,
-        };
+        let config_r = SearchConfig::new(*blue, cfg.width, cfg.depth, None);
 
         let beam_r = Beam { config: config_r };
         let Some(result_r) = beam_r.search(&game_r) else {
@@ -144,7 +133,7 @@ pub fn train(config: &GlobalConfig, initial: Model, num_players: usize, epochs: 
         // snapshot weights so all matches see the same epoch’s weights.
         let epoch_weights: Vec<_> = players.iter().map(|p| p.model).collect();
 
-        let mut finished = AtomicU32::new(0);
+        let finished = AtomicU32::new(0);
         let total = ((players.len() * players.len()) - players.len()) / 2;
         let perf_counters = (0..num_players)
             .map(|_| AtomicU32::new(0))

@@ -1,18 +1,13 @@
 use crate::{
-    board::Board,
-    data::SPAWN_COL,
-    piece::Piece,
-    placement::Move,
-    ruleset::{self, ACTIVE_RULES, AttackConfig, AttackContext},
-    spin::SpinType,
+    board::Board, data::SPAWN_COL, piece::Piece, placement::Move, queue::Queue, ruleset::{self, ACTIVE_RULES, AttackConfig, AttackContext}, spin::SpinType
 };
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Game {
     pub board: Board,
     pub current: Piece,
     pub hold: Option<Piece>,
-    pub queue: Vec<Piece>,
+    pub queue: Queue,
     pub b2b: u8,
     pub combo: u32,
     pub pending_garbage: u8,
@@ -20,7 +15,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(board: Board, current: Piece, queue: Vec<Piece>, config: AttackConfig) -> Self {
+    pub fn new(board: Board, current: Piece, queue: Queue, config: AttackConfig) -> Self {
         Self {
             board,
             current,
@@ -135,14 +130,14 @@ impl Game {
         if should_hold {
             if self.hold.is_some() {
                 self.hold = Some(self.current);
-                self.current = self.queue.remove(0);
+                self.current = self.queue.remove_first();
             } else {
                 self.hold = Some(self.current);
-                self.queue.remove(0);
-                self.current = self.queue.remove(0);
+                self.queue.remove_first();
+                self.current = self.queue.remove_first();
             }
         } else {
-            self.current = self.queue.remove(0);
+            self.current = self.queue.remove_first();
         }
 
         (ctx, outgoing)

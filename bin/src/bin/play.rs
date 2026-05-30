@@ -1,13 +1,13 @@
-use engine_core::{
+use rand::seq::SliceRandom;
+use rue_core::{
     board::{Board, render_vs},
     game::Game,
     piece::ALL_PIECES,
     queue::Queue,
     ruleset::AttackConfig,
 };
-use engine_eval::{Model, active::ActiveModel, board::BoardModel};
-use engine_search::{beam::Beam, config::SearchConfig};
-use rand::seq::SliceRandom;
+use rue_eval::{Model, active::ActiveModel, board::BoardModel};
+use rue_search::{beam::Beam, config::SearchConfig};
 
 #[derive(Clone)]
 pub struct Player {
@@ -32,7 +32,7 @@ pub fn main() {
     let cfg = GlobalConfig {
         depth: 7,
         width: 5000,
-        target_ms: Some(1000),
+        target_ms: None,
     };
     let left = Model {
         board: BoardModel {
@@ -59,15 +59,16 @@ pub fn main() {
             well_depth: 0.7999999999999999,
             incoming_garbage: -5.299999999999996,
             tsd_overhangs: 3.599999999999999,
+            height_difference: [-5.0, 0.0, 0.0],
         },
         active: ActiveModel {
             waste: [
                 -0.1255365479342755,
-                -0.2883110096022584,
-                0.12297061592198662,
-                -0.3802643165097589,
-                -0.19738539724685844,
-                -0.24564533224096047,
+                0.2883110096022584,
+                -0.12297061592198662,
+                0.3802643165097589,
+                0.19738539724685844,
+                0.24564533224096047,
                 0.17499045430089216,
             ],
             clear: [
@@ -79,18 +80,18 @@ pub fn main() {
             ],
             clear_mini: [
                 -0.18505317090427725,
-                0.33232540075553363,
-                0.7104492604423174,
+                -0.33232540075553363,
+                -0.7104492604423174,
                 -1.6107147452979436,
             ],
             clear_spin: [
                 0.06958488507706678,
-                -0.24153952134963516,
+                -4.241539521349635,
                 1.5932260858824852,
                 -0.5052230771393342,
             ],
             b2b: 6.299999999999993,
-            combo: 4.4,
+            combo: -4.4,
             in_multiplier: 1.6999999999999997,
             perfect_clear: 1.6999999999999997,
         },
@@ -123,6 +124,7 @@ pub fn main() {
             tsd_overhangs: 0.0,
             row_transitions: 0.0,
             incoming_garbage: 0.0,
+            height_difference: [0.0, 0.0, 0.0],
         },
         active_weight: 1.0,
         board_weight: 1.0,
@@ -131,6 +133,7 @@ pub fn main() {
     let mut score_l = 0;
     let mut score_r = 0;
 
+    #[allow(clippy::never_loop)]
     loop {
         let mut rng = rand::rng();
         let mut queue_l = vec![];
@@ -148,17 +151,21 @@ pub fn main() {
             Board::new(),
             queue_l[0],
             Queue::from_slice(&queue_l[1..]),
-            AttackConfig::tetra_league(),
+            AttackConfig::season_one(),
         );
         let mut game_r = Game::new(
             Board::new(),
             queue_r[0],
             Queue::from_slice(&queue_r[1..]),
-            AttackConfig::tetra_league(),
+            AttackConfig::season_one(),
         );
 
         let mut n = 1;
         loop {
+            // if n % 14 == 0 {
+            //     game_l.pending_garbage.accept_many(&[1; 2]);
+            //     game_l.pending_garbage.accept_many(&[8; 1]);
+            // }
             // left move
             let config_l = SearchConfig::new(left, cfg.width, cfg.depth, cfg.target_ms);
 
@@ -194,14 +201,19 @@ pub fn main() {
                 &board_r,
                 Some(result_l.best_move),
                 Some(result_r.best_move),
+                // None,
             );
             println!(
                 "{score_l:>3}-{score_r:<3} | n={n:>3} | {el_l:.3?} ({:.3}pps), {el_r:.3?} ({:.3}pps)",
                 1.0 / el_l.as_secs_f64(),
                 1.0 / el_r.as_secs_f64()
             );
+            println!(
+                "{:?} ({:+.3}) sent {} {:?}",
+                result_l.best_move, result_l.score, self_l.1, self_l.0
+            );
             n += 1;
-            // println!("{:+.4} vs. {:+.4}", result_l.score, result_r.score);
+            println!("{:+.4} vs. {:+.4}", result_l.score, result_r.score);
 
             let send_r = game_r.advance(&result_r.best_move);
 
@@ -218,18 +230,24 @@ pub fn main() {
             }
 
             if self_l.1 > send_r.1 {
-                game_r.pending_garbage += self_l.1 - send_r.1;
+                game_r
+                    .pending_garbage
+                    .accept((self_l.1 - send_r.1) as usize);
             } else if send_r.1 > self_l.1 {
-                game_l.pending_garbage += send_r.1 - self_l.1;
+                game_l
+                    .pending_garbage
+                    .accept((send_r.1 - self_l.1) as usize);
             }
 
             // refill queues if needed
-            if game_l.queue_len() < 14 || game_r.queue_len() < 14 {
+
+            // println!("queue_len of {:?} = {}", game_l.queue, game_l.queue.len());
+            while game_l.queue_len() < 14 || game_r.queue_len() < 14 {
                 let mut bag = ALL_PIECES;
                 bag.shuffle(&mut rng);
 
-                queue_l.extend(bag);
-                queue_r.extend(bag);
+                game_l.queue.extend(bag);
+                game_r.queue.extend(bag);
             }
         }
     }

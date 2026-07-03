@@ -5,16 +5,16 @@ use std::{fmt::Display, marker::ConstParamTy};
 /// Tetromino kind encoded as a compact integer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ConstParamTy)]
 pub enum Piece {
-    /// I tetromino.
-    I = 0,
-    /// O tetromino.
-    O = 1,
     /// T tetromino.
-    T = 2,
+    T = 0,
+    /// I tetromino.
+    I = 1,
+    /// J tetromino.
+    J = 2,
     /// L tetromino.
     L = 3,
-    /// J tetromino.
-    J = 4,
+    /// O tetromino.
+    O = 4,
     /// S tetromino.
     S = 5,
     /// Z tetromino.
@@ -26,11 +26,11 @@ impl Piece {
     pub const NB: usize = 7;
     /// All tetromino kinds in canonical index order.
     pub const ALL: [Piece; Self::NB] = [
-        Piece::I,
-        Piece::O,
         Piece::T,
-        Piece::L,
+        Piece::I,
         Piece::J,
+        Piece::L,
+        Piece::O,
         Piece::S,
         Piece::Z,
     ];
@@ -39,11 +39,11 @@ impl Piece {
     /// Converts a compact integer to a piece, returning `None` when out of range.
     pub const fn from_u8(n: u8) -> Option<Piece> {
         match n {
-            0 => Some(Piece::I),
-            1 => Some(Piece::O),
             2 => Some(Piece::T),
-            3 => Some(Piece::L),
+            0 => Some(Piece::I),
             4 => Some(Piece::J),
+            3 => Some(Piece::L),
+            1 => Some(Piece::O),
             5 => Some(Piece::S),
             6 => Some(Piece::Z),
             _ => None,
@@ -163,11 +163,11 @@ impl Display for Piece {
     /// Formats the piece as its single-letter tetromino symbol.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Piece::I => write!(f, "I"),
-            Piece::O => write!(f, "O"),
             Piece::T => write!(f, "T"),
-            Piece::L => write!(f, "L"),
+            Piece::I => write!(f, "I"),
             Piece::J => write!(f, "J"),
+            Piece::L => write!(f, "L"),
+            Piece::O => write!(f, "O"),
             Piece::S => write!(f, "S"),
             Piece::Z => write!(f, "Z"),
         }

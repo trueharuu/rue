@@ -1,0 +1,12 @@
+[package]
+name = "rue_perft"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rayon = "1.12.0"
+rue_core = { version = "0.1.0", path = "../rue_core" }
+rue_nav = { version = "0.1.0", path = "../rue_nav" }
+
+[lints]
+workspace = true

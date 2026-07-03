@@ -32,3 +32,11 @@ pub enum Spins {
     /// Allow spins for all pieces.
     AllPlus = 3,
 }
+
+impl Spins {
+    /// Whether the policy allows immobility-based spin detection.
+    #[must_use]
+    pub const fn has_immobile(self) -> bool {
+        matches!(self, Spins::AllMini | Spins::AllPlus)
+    }
+}

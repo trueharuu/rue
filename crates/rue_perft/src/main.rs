@@ -1,5 +1,7 @@
 //! Binary entrypoint crate for perft experiments.
 
+use rue_core::{board::Board, piece::Piece, render::{render, render_with}, spin::Spins};
+use rue_nav::movegen::{self, spin::SpinMap};
 use rue_perft::{height::parse_queue, perft};
 use std::time::Instant;
 
@@ -19,6 +21,14 @@ pub fn main() {
         "perft({queue:?}) = {result} in {elapsed:?} ({} nodes/sec)",
         human(result as f64 / elapsed.as_secs_f64())
     );
+
+    const P: Piece = Piece::T;
+    let mut b = Board::<2>::EMPTY;
+    b.set_many(&[(0, 0), (1, 0), (0, 1), (3, 0), (3, 2)]);
+    let m = movegen::generate::<{ P }, { Spins::AllPlus }, 2>(&b, 20, 0);
+    for p in m.iter::<{ P }>() {
+        println!("{}", render_with(b, &p));
+    }
 }
 
 /// Format a number with K/M/B suffixes for thousands/millions/billions.

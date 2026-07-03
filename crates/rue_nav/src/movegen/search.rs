@@ -47,10 +47,10 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     let landable = cands[r] & !missing[r];
                     let immobile = if SPINS.has_immobile() {
                         landable
-                            & !landable.shifted(0, -1)
-                            & !landable.shifted(0, 1)
-                            & !landable.shifted(-1, 0)
-                            & !landable.shifted(1, 0)
+                            & !usable[r].shifted(0, -1)
+                            & !usable[r].shifted(0, 1)
+                            & !usable[r].shifted(-1, 0)
+                            & !usable[r].shifted(1, 0)
                     } else {
                         Board::<N>::EMPTY
                     };
@@ -58,7 +58,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     // todo: 3-corner t-spin detection
                     match SPINS {
                         Spins::None => {
-                            moves.none[r] = landable & !immobile;
+                            moves.none[r] = landable;
                         }
                         Spins::T => {
                             moves.none[r] = landable;

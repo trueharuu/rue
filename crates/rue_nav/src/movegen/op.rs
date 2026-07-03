@@ -50,7 +50,7 @@ pub fn vertical_ceiling<const N: usize>(mut surface: Board<N>, ceiling: i32) -> 
 
 #[macro_export]
 /// Unrolls a compile-time rotation index loop for values `0..4` with a runtime limit.
-macro_rules! unroll_rc {
+macro_rules! unroll {
     ($r:ident, $limit:expr, $body:block) => {{
         {
             #[allow(non_upper_case_globals)]

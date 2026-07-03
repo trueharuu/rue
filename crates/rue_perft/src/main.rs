@@ -67,13 +67,7 @@ mod tests {
     #[test]
     fn perft_ioljs() {
         assert_eq!(
-            perft_mt(&[
-                Piece::I,
-                Piece::O,
-                Piece::L,
-                Piece::J,
-                Piece::S
-            ]),
+            perft_mt(&[Piece::I, Piece::O, Piece::L, Piece::J, Piece::S]),
             3_497_187
         );
     }
@@ -86,14 +80,7 @@ mod tests {
     #[test]
     fn perft_ioljsz() {
         assert_eq!(
-            perft_mt(&[
-                Piece::I,
-                Piece::O,
-                Piece::L,
-                Piece::J,
-                Piece::S,
-                Piece::Z
-            ]),
+            perft_mt(&[Piece::I, Piece::O, Piece::L, Piece::J, Piece::S, Piece::Z]),
             67_002_200
         );
     }

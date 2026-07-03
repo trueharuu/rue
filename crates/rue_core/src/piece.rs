@@ -39,11 +39,11 @@ impl Piece {
     /// Converts a compact integer to a piece, returning `None` when out of range.
     pub const fn from_u8(n: u8) -> Option<Piece> {
         match n {
-            2 => Some(Piece::T),
-            0 => Some(Piece::I),
-            4 => Some(Piece::J),
+            0 => Some(Piece::T),
+            1 => Some(Piece::I),
+            2 => Some(Piece::J),
             3 => Some(Piece::L),
-            1 => Some(Piece::O),
+            4 => Some(Piece::O),
             5 => Some(Piece::S),
             6 => Some(Piece::Z),
             _ => None,

@@ -3,7 +3,7 @@
 use crate::buffer::Moves;
 use crate::collision::{landable_map, usable_map};
 use crate::movegen::op::{horizontal_tuck, kick_step, vertical_ceiling};
-use crate::unroll_rc;
+use crate::unroll;
 use rue_core::{
     board::Board,
     data::KickTab,
@@ -43,16 +43,41 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 let cands = landable_map(&usable, cs);
                 let mut moves = Moves::EMPTY;
 
-                unroll_rc!(r, cs, {
+                unroll!(r, cs, {
                     let landable = cands[r] & !missing[r];
-
-                    moves.none[r] = landable;
+                    let immobile = if SPINS.has_immobile() {
+                        landable
+                            & !landable.shifted(0, -1)
+                            & !landable.shifted(0, 1)
+                            & !landable.shifted(-1, 0)
+                            & !landable.shifted(1, 0)
+                    } else {
+                        Board::<N>::EMPTY
+                    };
+                    
+                    // todo: 3-corner t-spin detection
+                    match SPINS {
+                        Spins::None => {
+                            moves.none[r] = landable & !immobile;
+                        }
+                        Spins::T => {
+                            moves.none[r] = landable;
+                        }
+                        Spins::AllMini => {
+                            moves.none[r] = landable & !immobile;
+                            moves.mini[r] = immobile
+                        }
+                        Spins::AllPlus => {
+                            moves.none[r] = landable & !immobile;
+                            moves.full[r] = immobile;
+                        },
+                    }
                 });
                 return (moves, 0);
             }
 
             let mut miss = 0u32;
-            unroll_rc!(r, 4, {
+            unroll!(r, 4, {
                 if remaining & (1 << r) != 0 {
                     miss += missing[r].popcount();
                 }
@@ -64,7 +89,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
     {
         let cands = landable_map(&usable, cs);
         if !EMIT {
-            unroll_rc!(r, cs, {
+            unroll!(r, cs, {
                 total += cands[r].popcount();
             });
         }
@@ -79,7 +104,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 return (Moves::EMPTY, 0);
             }
             search[0].set(SPAWN_X, s);
-            unroll_rc!(r, cs, {
+            unroll!(r, cs, {
                 missing[r] = cands[r];
                 if missing[r].any() {
                     remaining |= 1 << r;
@@ -88,7 +113,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
             done = all_done & !1;
         } else {
             let ceiling = h - P.h_gen();
-            unroll_rc!(r, cs, {
+            unroll!(r, cs, {
                 let surface = !usable[r];
                 let surface = vertical_ceiling(surface, ceiling);
                 search[r] = !surface;
@@ -102,7 +127,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
             }
 
             // Two rounds of horizontal tucks (pure translation, no rotation)
-            unroll_rc!(r, cs, {
+            unroll!(r, cs, {
                 let mut s = search[r];
                 s = horizontal_tuck(s, &usable[r]);
                 s = horizontal_tuck(s, &usable[r]);
@@ -111,13 +136,13 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
             if P.group3() {
                 // Propagate seeds between group-3 rotations (pure translation)
-                unroll_rc!(r, 4, {
+                unroll!(r, 4, {
                     search[r] |= (search[(r + 1) & 3] | search[(r + 3) & 3]) & usable[r];
                 });
             }
 
             remaining = 0;
-            unroll_rc!(r, cs, {
+            unroll!(r, cs, {
                 missing[r] &= !search[r];
                 if missing[r].any() {
                     remaining |= 1 << r;
@@ -136,7 +161,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
     // BFS over nominal rotations with masked first-valid-kick waves.
     let mut unsearched = [Board::<N>::EMPTY; 4];
-    unroll_rc!(rs, ss, {
+    unroll!(rs, ss, {
         unsearched[rs] = (!search[rs]) & usable[const { P.canonical_rotation(rs) }];
     });
 
@@ -243,4 +268,3 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
     finish!();
 }
-

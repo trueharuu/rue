@@ -1,7 +1,7 @@
 //! Binary entrypoint crate for perft experiments.
 
-use rue_core::{board::Board, piece::Piece, render::{render, render_with}, spin::Spins};
-use rue_nav::movegen::{self, spin::SpinMap};
+use rue_core::{board::Board, piece::Piece, render::render_with, spin::Spins};
+use rue_nav::movegen;
 use rue_perft::{height::parse_queue, perft};
 use std::time::Instant;
 
@@ -22,6 +22,7 @@ pub fn main() {
         human(result as f64 / elapsed.as_secs_f64())
     );
 
+    #[allow(clippy::items_after_statements)]
     const P: Piece = Piece::T;
     let mut b = Board::<2>::EMPTY;
     b.set_many(&[(0, 0), (1, 0), (0, 1), (3, 0), (3, 2)]);

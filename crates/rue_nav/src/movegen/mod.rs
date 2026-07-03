@@ -22,10 +22,9 @@ pub fn generate<const P: Piece, const SPINS: Spins, const N: usize>(
     gen_impl::<P, SPINS, N, true>(b, y, force).0
 }
  
-/// Count the number of lockable placements that could not be reached.
-///
-/// Used to evaluate perfect clear feasibility and search pruning.
-/// Only populated when `SPINS = Spins::None` (spin detection disables counting).
+/// Count the number placements that could be reached.
+/// 
+/// Does not classify placements by spin type, nor does it return the placements themselves.
 #[inline]
 #[must_use]
 pub fn count_locks<const P: Piece, const N: usize>(

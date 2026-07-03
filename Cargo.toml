@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/rue_core"]
+members = ["crates/rue_core", "crates/rue_nav"]
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = 1 }

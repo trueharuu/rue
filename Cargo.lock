@@ -5,3 +5,10 @@ version = 4
 [[package]]
 name = "rue_core"
 version = "0.1.0"
+
+[[package]]
+name = "rue_nav"
+version = "0.1.0"
+dependencies = [
+ "rue_core",
+]

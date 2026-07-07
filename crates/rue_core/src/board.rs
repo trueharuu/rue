@@ -3,8 +3,7 @@
 use std::{cmp::Ordering, simd::Simd};
 
 use crate::{
-    header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask},
-    piece::Piece,
+    header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask}, piece::Piece, placement::Move,
 };
 
 /// A row-major banded bitboard. Each u64 represents a 10x6 band of the board with the 4 high-most bits left empty.
@@ -16,6 +15,47 @@ impl<const N: usize> Board<N> {
     pub const EMPTY: Self = Self(Simd::splat(0));
     /// Height of the board in rows for this band count.
     pub const H: i32 = TLINES * N as i32;
+
+    #[inline]
+    #[must_use]
+    /// Returns the board as a column-major bitboard.
+    pub fn as_cols(&self) -> [u64; WIDTH as usize] {
+        let mut cols = [0u64; WIDTH as usize];
+        let mut i = 0;
+        while i < N {
+            let mut j = 0;
+            while j < TLINES {
+                let mut k = 0;
+                while k < WIDTH {
+                    if self.0[i] & (1u64 << (j * WIDTH + k)) != 0 {
+                        cols[k as usize] |= 1u64 << j;
+                    }
+                    k += 1;
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+        cols
+    }
+
+    #[inline]
+    #[must_use]
+    /// Returns the height of column `col` in rows, or `0` if empty
+    pub fn col_height(&self, col: usize) -> i32 {
+        debug_assert!((0..WIDTH).contains(&(col as i32)));
+        let mut h = 0;
+        let mut i = 0;
+        while i < N {
+            let bits = self.0[i];
+            if bits != 0 {
+                let idx = 63 - bits.leading_zeros() as i32;
+                h = i as i32 * TLINES + idx / WIDTH + 1;
+            }
+            i += 1;
+        }
+        h
+    }
 
     #[inline]
     #[must_use]
@@ -206,12 +246,12 @@ impl<const N: usize> Board<N> {
 
     #[inline]
     /// Places a piece by explicit cell writes, applies line clear, and returns cleared line count.
-    pub fn do_move(&mut self, piece: Piece, rc: usize, x: i32, y: i32) -> u32 {
-        self.set(x, y);
-        let cells = PCELLS[piece as usize][rc];
-        self.set(x + i32::from(cells[0].0), y + i32::from(cells[0].1));
-        self.set(x + i32::from(cells[1].0), y + i32::from(cells[1].1));
-        self.set(x + i32::from(cells[2].0), y + i32::from(cells[2].1));
+    pub fn do_move(&mut self, placement: Move) -> u32 {
+        self.set(placement.x(), placement.y());
+        let cells = PCELLS[placement.piece() as usize][placement.rotation() as usize];
+        self.set(placement.x() + i32::from(cells[0].0), placement.y() + i32::from(cells[0].1));
+        self.set(placement.x() + i32::from(cells[1].0), placement.y() + i32::from(cells[1].1));
+        self.set(placement.x() + i32::from(cells[2].0), placement.y() + i32::from(cells[2].1));
         let clears = self.line_clears();
         if clears.any() {
             let n = clears.popcount();

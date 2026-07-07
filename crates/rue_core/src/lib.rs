@@ -13,3 +13,5 @@ pub mod placement;
 pub mod render;
 pub mod rotation;
 pub mod spin;
+pub mod game;
+pub mod rng;

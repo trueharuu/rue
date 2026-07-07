@@ -1,5 +1,4 @@
 //! Shared geometry constants and compile-time lookup tables.
-
 use crate::piece::Piece;
 
 /// Board width in cells.
@@ -167,3 +166,4 @@ pub const fn top_extent(p: Piece, rc: usize) -> i32 {
     }
     top + 1
 }
+

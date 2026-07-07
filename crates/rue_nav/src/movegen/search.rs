@@ -41,7 +41,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
         () => {{
             if EMIT {
                 let cands = landable_map(&usable, cs);
-                let mut moves = Moves::EMPTY;
+                let mut moves = Moves::empty(P);
 
                 unroll!(r, cs, {
                     let landable = cands[r] & !missing[r];
@@ -82,7 +82,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     miss += missing[r].popcount();
                 }
             });
-            return (Moves::EMPTY, total - miss);
+            return (Moves::empty(P), total - miss);
         }};
     }
 
@@ -101,7 +101,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 s += 1;
             }
             if s == threshold {
-                return (Moves::EMPTY, 0);
+                return (Moves::empty(P), 0);
             }
             search[0].set(SPAWN_X, s);
             unroll!(r, cs, {

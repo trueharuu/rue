@@ -1,7 +1,8 @@
-
 //! Move result buffers grouped by rotation and spin outcome.
 
-use rue_core::{board::Board, header::WIDTH, piece::Piece, placement::Move, rotation::Rotation, spin::Spin};
+use rue_core::{
+    board::Board, header::WIDTH, piece::Piece, placement::Move, rotation::Rotation, spin::Spin,
+};
 
 /// Result of move generation: landable positions per rotation, per spin type.
 ///
@@ -11,6 +12,8 @@ use rue_core::{board::Board, header::WIDTH, piece::Piece, placement::Move, rotat
 /// - `full[r]`: positions with a full spin
 #[derive(Clone, Copy)]
 pub struct Moves<const N: usize> {
+    /// The piece that these moves are for.
+    pub piece: Piece,
     /// Landable positions without a final spin classification.
     pub none: [Board<N>; 4],
     /// Landable positions classified as mini spins.
@@ -21,11 +24,15 @@ pub struct Moves<const N: usize> {
 
 impl<const N: usize> Moves<N> {
     /// Empty move buffer with no landable cells in any bucket.
-    pub const EMPTY: Self = Self {
-        none: [Board::EMPTY; 4],
-        mini: [Board::EMPTY; 4],
-        full: [Board::EMPTY; 4],
-    };
+
+    pub const fn empty(piece: Piece) -> Self {
+        Self {
+            piece,
+            none: [Board::EMPTY; 4],
+            mini: [Board::EMPTY; 4],
+            full: [Board::EMPTY; 4],
+        }
+    }
 
     #[inline]
     #[must_use]
@@ -49,7 +56,7 @@ impl<const N: usize> Moves<N> {
     }
 
     /// Iterates all occupied move cells as packed `Move` values for piece `P`.
-    pub fn iter<const P: Piece>(&self) -> impl Iterator<Item = Move> {
+    pub fn iter(&self) -> impl Iterator<Item = Move> {
         (0..4).flat_map(move |r| {
             [Spin::None, Spin::Mini, Spin::Full]
                 .into_iter()
@@ -58,7 +65,7 @@ impl<const N: usize> Moves<N> {
                     (0..Board::<N>::H).flat_map(move |y| {
                         (0..WIDTH).filter_map(move |x| {
                             if b.get(x, y) {
-                                Some(Move::new(P, Rotation::from(r as u8), x, y, s))
+                                Some(Move::new(self.piece, Rotation::from(r as u8), x, y, s))
                             } else {
                                 None
                             }

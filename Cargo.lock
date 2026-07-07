@@ -58,6 +58,13 @@ name = "rue_core"
 version = "0.1.0"
 
 [[package]]
+name = "rue_eval"
+version = "0.1.0"
+dependencies = [
+ "rue_core",
+]
+
+[[package]]
 name = "rue_nav"
 version = "0.1.0"
 dependencies = [
@@ -70,5 +77,14 @@ version = "0.1.0"
 dependencies = [
  "rayon",
  "rue_core",
+ "rue_nav",
+]
+
+[[package]]
+name = "rue_solo"
+version = "0.1.0"
+dependencies = [
+ "rue_core",
+ "rue_eval",
  "rue_nav",
 ]

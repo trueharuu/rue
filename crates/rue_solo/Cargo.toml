@@ -1,0 +1,12 @@
+[package]
+name = "rue_solo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rue_core = { version = "0.1.0", path = "../rue_core" }
+rue_eval = { version = "0.1.0", path = "../rue_eval" }
+rue_nav = { version = "0.1.0", path = "../rue_nav" }
+
+[lints]
+workspace = true

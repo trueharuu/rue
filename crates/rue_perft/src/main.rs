@@ -1,8 +1,8 @@
-//! Binary entrypoint crate for perft experiments.
+//! Binary entrypoint for the [`rue_nav`] performance test.
 
 use rue_core::{board::Board, piece::Piece, render::render_with, spin::Spins};
 use rue_nav::movegen;
-use rue_perft::{height::parse_queue, perft};
+use rue_perft::{height::parse_queue, perft_mt};
 use std::time::Instant;
 
 /// Entry point.
@@ -15,7 +15,7 @@ pub fn main() {
 
     let queue = parse_queue(&args[0]).expect("Invalid queue");
     let i = Instant::now();
-    let result = perft(&queue);
+    let result = perft_mt(&queue);
     let elapsed = i.elapsed();
     println!(
         "perft({queue:?}) = {result} in {elapsed:?} ({} nodes/sec)",
@@ -26,8 +26,8 @@ pub fn main() {
     const P: Piece = Piece::T;
     let mut b = Board::<2>::EMPTY;
     b.set_many(&[(0, 0), (1, 0), (0, 1), (3, 0), (3, 2)]);
-    let m = movegen::generate::<{ P }, { Spins::AllPlus }, 2>(&b, 20, 0);
-    for p in m.iter::<{ P }>() {
+    let m = movegen::generate_inlined::<{ P }, { Spins::AllPlus }, 2>(&b, 20, 0);
+    for p in m.iter() {
         println!("{}", render_with(b, &p));
     }
 }

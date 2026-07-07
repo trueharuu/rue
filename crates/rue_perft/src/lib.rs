@@ -10,8 +10,8 @@ pub mod fusion;
 pub mod height;
 mod traversal;
 
-use rue_core::{board::Board, piece::Piece, spin::Spins};
-use rue_nav::movegen::generate;
+use rue_core::{board::Board, piece::Piece, placement::Move, rotation::Rotation, spin::{Spin, Spins}};
+use rue_nav::movegen::generate_inlined;
 pub use dispatch::perft_rec;
 
 /// Perft from an empty board over the given piece queue.
@@ -64,12 +64,12 @@ pub fn perft_mt(queue: &[Piece]) -> u64 {
 /// Cold path: runs once per work-list ply, so plain full-band ops suffice.
 fn collect_children(b: &Board<8>, h: i32, p: Piece, out: &mut Vec<(Board<8>, i32)>) {
     fn go<const P: Piece>(b: &Board<8>, h: i32, out: &mut Vec<(Board<8>, i32)>) {
-        let ml = generate::<P, { Spins::None }, 8>(b, h, 0);
+        let ml = generate_inlined::<P, { Spins::None }, 8>(b, h, 0);
         let mut rc = 0;
         while rc < P.canonical_rotations() {
             ml.none[rc].for_each_set_bit(|x, y| {
                 let mut b2 = *b;
-                b2.do_move(P, rc, x, y);
+                b2.do_move(Move::new(P, Rotation::from(rc as u8), x, y, Spin::None));
                 out.push((b2, b2.max_y()));
             });
             rc += 1;

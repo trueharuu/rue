@@ -4,7 +4,7 @@
 //! with dynamic band-width casting to minimize memory per recursion level.
 
 use rue_core::{board::Board, piece::Piece, spin::Spins};
-use rue_nav::movegen::{count_locks, generate};
+use rue_nav::movegen::{count_locks, generate_inlined};
 
 use crate::fusion::last_dispatch;
 use crate::height::{band_words, height_after_clear_free};
@@ -59,7 +59,7 @@ pub fn inner<const P: Piece, const N: usize>(
     h: i32,
 ) -> u64 {
     let b1: Board<N> = b.cast();
-    let ml = generate::<P, { Spins::None }, N>(&b1, h, 0);
+    let ml = generate_inlined::<P, { Spins::None }, N>(&b1, h, 0);
     let h2w = band_words(h + P.h_place());
     let rest = &q[1..];
 

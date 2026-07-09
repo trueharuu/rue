@@ -10,11 +10,10 @@ use rue_core::{
     render::render_with,
     rng::{Rng, RngKind},
 };
-use rue_eval::{simple::Simple, weights::Weights};
-use rue_nav::buffer::Moves;
+use rue_eval::simple::Simple;
 
 /// Pieces per second.
-pub const PPS: f64 = 3.0;
+pub const PPS: f64 = 300.0;
 /// Entry point.
 pub fn main() {
     let mut rng = Rng::new();
@@ -31,7 +30,11 @@ pub fn main() {
     };
 
     fill(&mut game.queue, &mut rng, 3);
-
+    let mut total_attack = 0u32;
+    let mut pieces = 0u32;
+    let mut chain_pieces = 0u32;
+    let mut chain_b2b = 0u32;
+    let i_total = Instant::now();
     loop {
         let i = Instant::now();
         let best = best_placement(&game);
@@ -42,8 +45,37 @@ pub fn main() {
         }
 
         let (best, score) = best.unwrap();
-        println!("{}\n{score}", render_with(game.board, &best));
-        game.tick(best);
+        println!("{}", render_with(game.board, &best));
+        let h = game.hold.map_or_else(String::new, |x| x.to_string());
+        let q = game.queue[..6]
+            .iter()
+            .map(std::string::ToString::to_string)
+            .collect::<String>();
+        let out = game.tick(best);
+        if game.b2b_count.is_none() {
+            chain_pieces = 0;
+            chain_b2b = 0;
+        } else {
+            chain_pieces += 1;
+            if out.is_b2b {
+                chain_b2b += 1;
+            }
+        }
+        pieces += 1;
+        total_attack += out.outgoing as u32;
+        println!(
+            "{score:.3} {e:.2?} [{h}]{q} sent {}/{}",
+            out.outgoing, out.line_clears
+        );
+        println!("choosable active pieces: {:?}", game.active());
+        println!(
+            "b2b={:?} combo={:?} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3}",
+            game.b2b_count,
+            game.combo_count,
+            f64::from(pieces) / i_total.elapsed().as_secs_f64(),
+            f64::from(total_attack) / f64::from(pieces),
+            f64::from(chain_b2b) / (f64::from(chain_pieces) / 7.0)
+        );
         // break;
         if game.queue.len() <= 14 {
             fill(&mut game.queue, &mut rng, 2);
@@ -64,47 +96,40 @@ fn fill(p: &mut Vec<Piece>, r: &mut Rng, n: usize) {
         p.extend_from_slice(&slice);
     }
 }
+use rue_search::{SearchConfig, beam_search};
 
 /// The best placement at any given time.
+#[must_use]
 pub fn best_placement<const N: usize>(game: &Game<N>) -> Option<(Move, f64)> {
-    let placements_active =
-        rue_nav::movegen::generate(&game.board, game.ruleset, game.active(), 20, 0);
-    let placements_held = if let Some(h) = game.hold
-        && h != game.active()
-    {
-        rue_nav::movegen::generate(&game.board, game.ruleset, h, 20, 0)
-    } else {
-        Moves::empty(game.active())
-    };
-
     let model = Simple {
+        b2b: 5.0,
         holes: -4.0,
-        cell_coveredness: -0.5,
+        cell_coveredness: -4.5,
         height: -0.2,
         height_half: -1.0,
         height_three_quarters: -5.0,
         bumpiness: -0.3,
         bumpiness_sq: -0.1,
+        row_transitions: -0.3,
+        active: [
+            [0.0, 3.5, 3.5],
+            [-1.0, 2.0, 1.0],
+            [-1.0, 0.5, 2.0],
+            [-1.0, 0.5, 2.0],
+            [2.0, 0.0, 0.0],
+        ],
+        combo: 0.5,
+        sent: 0.5,
+        well_col: [-0.5, -1.0, 0.2, 2.0, 1.0, 1.0, 2.0, 0.2, -1.0, -0.5],
+        well_depth: 1.0,
     };
 
-    let mut best: Option<(Move, f64)> = None;
-    for z in placements_active.iter().chain(placements_held.iter()) {
-        let mut after = game.clone();
-        after.tick(z);
+    let cfg = SearchConfig {
+        beam_width: 500,
+        depth: 7,
+        futility_delta: 0.0,
+    };
 
-        let ev = model.evaluate(&after, &z);
-        // println!(
-        //     "{}\nsuggested placement scores {ev}",
-        //     render_with(game.board, &z)
-        // );
-        if let Some(b) = best.as_mut() {
-            if ev > b.1 {
-                *b = (z, ev);
-            }
-        } else {
-            best = Some((z, ev));
-        }
-    }
-
-    best
+    let result = beam_search(game, &cfg, &model);
+    result.map(|x| (x.best.root_move, x.best.score))
 }

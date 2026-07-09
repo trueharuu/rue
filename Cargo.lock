@@ -81,10 +81,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "rue_search"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+ "rue_core",
+ "rue_eval",
+ "rue_nav",
+ "rustc-hash",
+]
+
+[[package]]
 name = "rue_solo"
 version = "0.1.0"
 dependencies = [
  "rue_core",
  "rue_eval",
  "rue_nav",
+ "rue_search",
 ]
+
+[[package]]
+name = "rustc-hash"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b1e7f9a428571be2dc5bc0505c13fb6bf936822b894ec87abf8a08a4e51742d"

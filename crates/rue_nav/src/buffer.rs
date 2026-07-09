@@ -24,7 +24,7 @@ pub struct Moves<const N: usize> {
 
 impl<const N: usize> Moves<N> {
     /// Empty move buffer with no landable cells in any bucket.
-
+    #[must_use]
     pub const fn empty(piece: Piece) -> Self {
         Self {
             piece,
@@ -56,7 +56,7 @@ impl<const N: usize> Moves<N> {
     }
 
     /// Iterates all occupied move cells as packed `Move` values for piece `P`.
-    pub fn iter(&self) -> impl Iterator<Item = Move> {
+    pub fn iter(self) -> impl Iterator<Item = Move> {
         (0..4).flat_map(move |r| {
             [Spin::None, Spin::Mini, Spin::Full]
                 .into_iter()

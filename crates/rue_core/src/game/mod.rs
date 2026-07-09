@@ -3,8 +3,8 @@
 pub mod attack;
 pub mod ruleset;
 
+use crate::game::attack::{AttackContext, b2b_chaining_bonus};
 use crate::{board::Board, game::ruleset::Ruleset, piece::Piece, placement::Move, spin::Spin};
-use crate::game::attack::b2b_chaining_bonus;
 
 #[derive(Clone)]
 /// A full singleplayer game state.
@@ -30,31 +30,46 @@ pub struct Game<const N: usize> {
 }
 
 impl<const N: usize> Game<N> {
-    /// The active piece.
-    pub fn active(&self) -> Piece {
-        self.queue[0]
+    /// The next placeable pieces.
+    #[must_use]
+    pub fn active(&self) -> (Piece, Piece) {
+        if let Some(s) = self.hold {
+            (self.queue[0], s)
+        } else {
+            (self.queue[0], self.queue[1])
+        }
     }
+
+    // TODO: garbage cancelling/tanking, implement garbage queue mechanics
     /// Advance the game state by one placement.
     /// Returns the total number of lines sent to the opponent, if any. Value is kept as a float to be rounded by the caller.
-    pub fn tick(&mut self, placement: Move) -> f64 {
+    pub fn tick(&mut self, placement: Move) -> AttackContext {
         let requires_hold = placement.piece() != self.queue[0];
 
         let line_clears = self.board.do_move(placement);
 
         // apply changes to queue and hold
         {
-            if requires_hold {
-                match self.hold {
-                    Some(h) => {
-                        self.queue[0] = h;
-                        self.hold = Some(placement.piece());
-                    }
-                    None => {
-                        self.hold = Some(self.queue[0]);
-                        self.queue.remove(0);
-                    }
-                }
-            } else {
+            let has_held = self.hold.is_some();
+
+            // 4 cases
+            // no piece held, we want to place Abcdefg
+            if !has_held && !requires_hold {
+                self.queue.remove(0);
+            }
+            // no piece held, we want to place aBcdefg
+            else if !has_held && requires_hold {
+                self.hold = Some(self.queue[0]);
+                self.queue.remove(0);
+                self.queue.remove(0);
+            }
+            // piece held, we want to place [A]bcdefg
+            else if has_held && requires_hold {
+                self.hold = Some(self.queue[0]);
+                self.queue.remove(0);
+            }
+            // piece held, we want to place [a]Bcdefg
+            else if has_held && !requires_hold {
                 self.queue.remove(0);
             }
         }
@@ -91,10 +106,19 @@ impl<const N: usize> Game<N> {
         }
 
         if line_clears == 0 {
-            return 0.0;
+            return AttackContext {
+                placement,
+                line_clears: 0,
+                is_pc: false,
+                sent: 0.0,
+                is_b2b: false,
+                garbage_cancelled: 0.0,
+                garbage_tanked: 0.0,
+                outgoing: 0.0,
+            };
         }
 
-        let mut garbage = self.ruleset.base_attack(line_clears, placement.spin()) as f64;
+        let mut garbage = f64::from(self.ruleset.base_attack(line_clears, placement.spin()));
 
         if let Some(s) = self.b2b_count
             && s > 0
@@ -102,50 +126,62 @@ impl<const N: usize> Game<N> {
             if self.ruleset.b2b_chaining {
                 garbage += b2b_chaining_bonus(s, &self.ruleset);
             } else {
-                garbage += self.ruleset.back_to_back_bonus as f64;
+                garbage += f64::from(self.ruleset.back_to_back_bonus);
             }
         }
 
         if let Some(combo) = self.combo_count
             && combo > 0
         {
-            garbage *= 1.0 + self.ruleset.combo_bonus * combo as f64;
+            garbage *= 1.0 + self.ruleset.combo_bonus * f64::from(combo);
             if combo > 1 {
-                let combo_floor = (1.0 + combo as f64 * self.ruleset.combo_floor_scale).ln();
+                let combo_floor = (1.0 + f64::from(combo) * self.ruleset.combo_floor_scale).ln();
                 garbage = garbage.max(combo_floor);
             }
         }
 
         let is_garbage_special = false;
         let special_bonus = if is_garbage_special && is_special_clear {
-            self.ruleset.garbage_clear_bonus as f64
+            f64::from(self.ruleset.garbage_clear_bonus)
         } else {
             0.0
         };
 
         let main_event = (garbage * self.ruleset.garbage_multiplier + special_bonus).floor();
-        let chain_broken = !is_special_clear && !(is_pc && self.ruleset.pc_b2b.is_some());
+        let chain_broken = !(is_special_clear || is_pc && self.ruleset.pc_b2b.is_some());
         let surge_event = if self.ruleset.b2b_charging {
             pre_b2b
                 .filter(|_| chain_broken)
                 .filter(|b| *b + 1 > self.ruleset.b2b_charging_start)
-                .map(|b| {
-                    ((b - self.ruleset.b2b_charging_start + self.ruleset.back_to_back_bonus + 1)
-                        as f64
-                        * self.ruleset.garbage_multiplier)
+                .map_or(0.0, |b| {
+                    (f64::from(
+                        b - self.ruleset.b2b_charging_start + self.ruleset.back_to_back_bonus + 1,
+                    ) * self.ruleset.garbage_multiplier)
                         .floor()
                         .max(0.0)
                 })
-                .unwrap_or(0.0)
         } else {
             0.0
         };
         let pc_event = if is_pc {
-            (self.ruleset.pc_garbage as f64 * self.ruleset.garbage_multiplier).floor()
+            (f64::from(self.ruleset.pc_garbage) * self.ruleset.garbage_multiplier).floor()
         } else {
             0.0
         };
 
-        main_event + surge_event + pc_event
+        AttackContext {
+            outgoing: main_event + surge_event + pc_event,
+            is_pc,
+            line_clears: line_clears as usize,
+            placement,
+            is_b2b: if self.ruleset.pc_b2b.is_some() {
+                is_pc || is_special_clear
+            } else {
+                is_special_clear
+            },
+            garbage_cancelled: 0.0,
+            garbage_tanked: 0.0,
+            sent: 0.0,
+        }
     }
 }

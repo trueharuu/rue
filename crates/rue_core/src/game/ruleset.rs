@@ -66,6 +66,7 @@ pub struct Ruleset {
 
 impl Ruleset {
     /// Returns base garbage before combo, B2B, surge, and multipliers.
+    #[must_use]
     pub fn base_attack(&self, lines: u32, spin: Spin) -> u32 {
         match spin {
             Spin::None => match lines {

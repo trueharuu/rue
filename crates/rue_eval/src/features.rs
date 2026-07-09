@@ -23,10 +23,10 @@ pub fn bumpiness(heights: &[usize; WIDTH as usize], well_col: Option<usize>) -> 
 
     for i in 0..(WIDTH as usize - 1) {
         // skip transitions involving the well column
-        if let Some(wc) = well_col {
-            if i == wc || i + 1 == wc {
-                continue;
-            }
+        if let Some(wc) = well_col
+            && (i == wc || i + 1 == wc)
+        {
+            continue;
         }
         let diff = (heights[i] as i32) - (heights[i + 1] as i32);
         bump += diff.abs();
@@ -70,7 +70,10 @@ pub fn find_well(heights: &[usize; WIDTH as usize]) -> (Option<usize>, i32) {
 /// A covered block is defined to be a filled cell above the topmost hole, and is capped at 6 per column.
 #[inline]
 #[must_use]
-pub fn holes_and_covered<const N: usize>(board: &Board<N>, heights: &[usize; WIDTH as usize]) -> (i32, i32) {
+pub fn holes_and_covered<const N: usize>(
+    board: &Board<N>,
+    heights: &[usize; WIDTH as usize],
+) -> (i32, i32) {
     let mut holes = 0i32;
     let mut covered = 0i32;
 
@@ -98,4 +101,54 @@ pub fn holes_and_covered<const N: usize>(board: &Board<N>, heights: &[usize; WID
     }
 
     (holes, covered)
+}
+
+// oracle sample implementation from `Mochbot/fusion`
+// #[inline]
+// fn row_transitions(board: &Board, max_height: usize) -> i32 {
+//     const LANE_LSB: u64 = 0x0001_0001_0001_0001;
+//     const LANE_LOW9: u64 = 0x01FF_01FF_01FF_01FF;
+//     const LANE_SHIFT_GUARD: u64 = 0x7FFF_7FFF_7FFF_7FFF;
+
+//     let mut total = 0u32;
+//     let mut y = 0usize;
+//     while y < max_height {
+//         let v = (board.rows[y] as u64)
+//             | (board.rows[y + 1] as u64) << 16
+//             | (board.rows[y + 2] as u64) << 32
+//             | (board.rows[y + 3] as u64) << 48;
+//         let nz = ((v + LANE_SHIFT_GUARD) >> 15) & LANE_LSB;
+//         let xor = v ^ ((v >> 1) & LANE_SHIFT_GUARD);
+//         total += (xor & LANE_LOW9).count_ones();
+//         total += ((!v) & LANE_LSB & nz).count_ones();
+//         total += ((!(v >> 9)) & LANE_LSB & nz).count_ones();
+//         y += 4;
+//     }
+//     total as i32
+// }
+/// Counts row transitions: horizontal transitions between adjacent cells plus walls within each row up to `max_height`.
+#[inline]
+#[must_use]
+pub fn row_transitions<const N: usize>(board: &Board<N>, max_height: usize) -> i32 {
+    let mut total = 0;
+    for y in 0..max_height {
+        let mut row = 0u16;
+        for x in 0..WIDTH as usize {
+            if board.get(x as i32, y as i32) {
+                row |= 1u16 << x;
+            }
+        }
+        if row == 0 {
+            continue;
+        }
+        let xor = row ^ (row >> 1);
+        total += (xor & 0x1FF).count_ones() as i32;
+        if row & 1 == 0 {
+            total += 1;
+        }
+        if (row >> 9) & 1 == 0 {
+            total += 1;
+        }
+    }
+    total
 }

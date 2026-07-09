@@ -14,6 +14,7 @@ use crate::height::band_words;
 /// For each move (x, y, rc) by piece P2, we place it (casting to band width M
 /// as needed), compute its exact height, and count the unreachable lockable
 /// placements for the final piece P2.
+#[must_use]
 pub fn last_level<const P2: Piece, const N: usize, const M: usize>(
     b1: &Board<N>,
     ml: &Moves<N>,
@@ -25,12 +26,11 @@ pub fn last_level<const P2: Piece, const N: usize, const M: usize>(
     let mut rc = 0;
 
     while rc < cs {
-        let te = top_extent(p, rc); // <-- Compute P's extent once
+        let te = top_extent(p, rc);
         ml.none[rc].for_each_set_bit(|x, y| {
             let mut b2: Board<M> = b1.cast();
             let clears = b2.do_move_masked(p, rc, x, y);
 
-            // Use P's extent (via captured `te`), not P2's
             let h2 = if clears == 0 {
                 let t = y + te;
                 if t > h { t } else { h }

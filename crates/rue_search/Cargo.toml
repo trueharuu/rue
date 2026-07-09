@@ -1,13 +1,14 @@
 [package]
-name = "rue_solo"
+name = "rue_search"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 rue_core = { version = "0.1.0", path = "../rue_core" }
-rue_eval = { version = "0.1.0", path = "../rue_eval" }
 rue_nav = { version = "0.1.0", path = "../rue_nav" }
-rue_search = { version = "0.1.0", path = "../rue_search" }
+rue_eval = { version = "0.1.0", path = "../rue_eval" }
+rustc-hash = "2"
+rayon = "1"
 
 [lints]
 workspace = true

@@ -15,6 +15,8 @@ pub enum RngKind {
 
 impl RngKind {
     /// The selectable pool of pieces for this randomizer.
+    #[inline]
+    #[must_use]
     pub fn slice(self) -> Vec<Piece> {
         match self {
             Self::Bag7 => vec![
@@ -32,15 +34,19 @@ impl RngKind {
 
 impl Rng {
     /// Create a new instance of the given RNG with a seed based on the current time.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         let now = std::time::SystemTime::now().elapsed().unwrap();
-        Self::new_seeded((now.as_nanos() % 2147483647) as i32)
+        Self::new_seeded((now.as_nanos() % 2_147_483_647) as i32)
     }
 
     /// Create a new instance of the given RNG with a set seed.
+    #[inline]
+    #[must_use]
     pub fn new_seeded(mut seed: i32) -> Self {
         if seed <= 0 {
-            seed += 2147483646;
+            seed += 2_147_483_646;
         }
 
         Self { seed }
@@ -48,13 +54,13 @@ impl Rng {
 
     /// Advances the randomiser state.
     pub const fn next(&mut self) -> i32 {
-        self.seed = 16807 * self.seed % 2147483647;
+        self.seed = self.seed.wrapping_mul(16807) % 2_147_483_647;
         self.seed
     }
 
     /// Advances the randomiser state, and returns it as a float within `[0, 1)`.
     pub const fn next_float(&mut self) -> f64 {
-        (self.next() - 1) as f64 / 2147483647.0
+        (self.next() - 1) as f64 / 2_147_483_647.0
     }
 
     /// Randomises an array in-place with a Fisher-Yates shuffle.
@@ -69,5 +75,11 @@ impl Rng {
             slice.swap(i, r);
             i -= 1;
         }
+    }
+}
+
+impl Default for Rng {
+    fn default() -> Self {
+        Self::new()
     }
 }

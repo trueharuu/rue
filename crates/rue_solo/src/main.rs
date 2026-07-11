@@ -4,12 +4,7 @@ use std::time::Instant;
 
 use fumen::Fumen;
 use rue_core::{
-    board::Board,
-    game::{Game, garbage::GarbageQueue, ruleset::SEASON_2},
-    piece::Piece,
-    placement::Move,
-    render::render_with,
-    rng::{Rng, RngKind},
+    board::Board, game::{Game, garbage::GarbageQueue, ruleset::SEASON_2}, piece::Piece, placement::Move, render::render_with, rng::{Rng, RngKind}, spin::Spins,
 };
 use rue_eval::{simple::Simple, weights::Weights};
 
@@ -21,7 +16,7 @@ pub fn main() {
     let model: Simple = serde_json::from_str(
         &std::fs::read_to_string(format!("weights/{current}")).expect("failed to read weights"),
     ).expect("failed to parse weights");
-    
+
     println!("Loaded model: {current}");
 
     let mut game = Game {
@@ -34,6 +29,7 @@ pub fn main() {
         ruleset: SEASON_2,
         rng: Rng::new(),
     };
+    game.ruleset.spins = Spins::AllPlus;
 
     let mut fu = Fumen::default();
 
@@ -57,6 +53,7 @@ pub fn main() {
 
         let (best, score) = best.unwrap();
         println!("{}", render_with(game.board, &best));
+        println!("{:?}", pathfinder::get_input(&game.board, best, &game.ruleset, true, false));
         let page = fu.add_page();
         for fy in 0..23 {
             for fx in 0..10 {
@@ -146,6 +143,7 @@ fn fill(p: &mut Vec<Piece>, r: &mut Rng, n: usize) {
         p.extend_from_slice(&slice);
     }
 }
+use rue_nav::pathfinder;
 use rue_search::{SearchConfig, beam_search};
 
 /// The best placement at any given time.

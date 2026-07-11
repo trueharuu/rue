@@ -4,3 +4,4 @@
 pub mod collision;
 pub mod buffer;
 pub mod movegen;
+pub mod pathfinder;

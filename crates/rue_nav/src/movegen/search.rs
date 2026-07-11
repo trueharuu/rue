@@ -1,4 +1,26 @@
 //! Reachability search for piece placements across translations and SRS kicks.
+//! 
+//! A note on spin detection:
+//! 
+//! Spin policies are ordered. Any valid spin under [`Spins::T`] is also valid under [`Spins::AllMini`] and [`Spins::AllPlus`].
+//! Any valid spin under [`Spins::AllMini`] is also valid under [`Spins::AllPlus`].
+//! The only difference between [`Spins::AllMini`] and [`Spins::AllPlus`] is that the latter emits immobile placements as full spins, while the former emits them as mini spins.
+//! 
+//! On any ruleset that meets [`Spins::has_3corner`], these conditions emit a spin placement:
+//! - The piece is a [`Piece::T`]
+//! - The placement was reached via rotation.
+//! - At least 3 of 4 corners around the center are occupied. Out-of-bounds corners are always occupied.
+//! - If two "front" corners are occupied, the placement is a [`Spin::Full`]. Otherwise, it is a [`Spin::Mini`].
+//! - However, if this placement was reached via the 5th SRS kick, it is always a [`Spin::Full`].
+//! - Any sitation where the placement can be reached with both rotation and by translation should emit for both spin types.
+//! 
+//! On any ruleset that meets [`Spins::has_immobile`], these conditions emit a spin placement:
+//! - The piece is anything except [`Piece::O`].
+//! - The placement is immobile, meaning it cannot be moved in any direction (up, down, left, right).
+//! - On [`Spins::AllMini`], this emits a [`Spin::Mini`] placement.
+//! - On [`Spins::AllPlus`], this emits a [`Spin::Full`],
+//!   except for cases where a [`Spin::Mini`] was already emitted for the same placement via the 3-corner rule.
+//!   In that case, the immobile placement is ignored.
 
 use crate::buffer::Moves;
 use crate::collision::{landable_map, usable_map};

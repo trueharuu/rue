@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 rue_core = { version = "0.1.0", path = "../rue_core" }
+smallvec = "1.15.2"
 
 [lints]
 workspace = true

@@ -22,7 +22,7 @@ pub const KICKS_LJSZT: [[K5; 4]; 2] = [
 ];
 
 /// Kick rows for I pieces indexed by direction then rotation.
-pub const KICKS_I: [[K5; 4]; 2] = [
+pub const KICKS_I: [[K5; 4]; 3] = [
     [
         [(1, 0), (-1, 0), (2, 0), (-1, -1), (2, 2)],
         [(0, -1), (-1, -1), (2, -1), (-1, 1), (2, -2)],
@@ -34,11 +34,17 @@ pub const KICKS_I: [[K5; 4]; 2] = [
         [(-1, 0), (1, 0), (-2, 0), (1, 1), (-2, -2)],
         [(0, 1), (1, 1), (-2, 1), (1, -1), (-2, 2)],
         [(1, 0), (-1, 0), (2, 0), (-1, -1), (2, 2)],
+    ],
+    [
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
+        [(0, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
     ],
 ];
 
 #[must_use]
-/// Returns the kick row for piece `p`, direction `d` (`0` cw, `1` ccw), and rotation `r`.
+/// Returns the kick row for piece `p`, direction `d` (`0` cw, `1` ccw, `2` 180), and rotation `r`.
 pub const fn kick_row_const(p: Piece, d: usize, r: usize) -> K5 {
     if matches!(p, Piece::I) {
         KICKS_I[d][r]

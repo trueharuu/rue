@@ -1146,6 +1146,7 @@ name = "rue_nav"
 version = "0.1.0"
 dependencies = [
  "rue_core",
+ "smallvec",
 ]
 
 [[package]]

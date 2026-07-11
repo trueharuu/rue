@@ -1,0 +1,15 @@
+[package]
+name = "rue_client"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.103"
+async-trait = "0.1"
+dotenvy = "0.15.7"
+rue_macro = { version = "0.1.0", path = "../rue_macro" }
+tokio = { version = "1.52.3", features = ["full"] }
+triangle = { git = "https://github.com/halp1/triangle-rs", package = "triangle-rs" }
+
+[lints]
+workspace = true

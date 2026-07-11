@@ -3,7 +3,9 @@
 use std::{cmp::Ordering, simd::Simd};
 
 use crate::{
-    header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask}, piece::Piece, placement::Move,
+    header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask},
+    piece::Piece,
+    placement::Move,
 };
 
 /// A row-major banded bitboard. Each u64 represents a 10x6 band of the board with the 4 high-most bits left empty.
@@ -16,9 +18,29 @@ impl<const N: usize> Board<N> {
     /// Height of the board in rows for this band count.
     pub const H: i32 = TLINES * N as i32;
 
+    /// Inserts `lines` garbage rows onto the bottom of the board, shifting existing content up.
+    /// Each garbage row has all columns filled except column `gap`.
+    #[inline]
+    pub fn insert_garbage(&mut self, lines: u32, gap_col: u32) {
+        debug_assert!(lines > 0 && lines <= TLINES as u32 * N as u32);
+        debug_assert!(gap_col < WIDTH as u32);
+
+        let mut remaining = lines;
+        while remaining > 0 {
+            let band = (self.max_y() / TLINES) as usize;
+            if band >= N {
+                break;
+            }
+
+            let band_lines = std::cmp::min(remaining, TLINES as u32);
+            self.push_garbage(band_lines as u8, gap_col as u8);
+            remaining -= band_lines;
+        }
+    }
+
+    /// Returns the board as a column-major bitboard.
     #[inline]
     #[must_use]
-    /// Returns the board as a column-major bitboard.
     pub fn as_cols(&self) -> [u64; WIDTH as usize] {
         let mut cols = [0u64; WIDTH as usize];
         let mut i = 0;
@@ -249,9 +271,18 @@ impl<const N: usize> Board<N> {
     pub fn do_move(&mut self, placement: Move) -> u32 {
         self.set(placement.x(), placement.y());
         let cells = PCELLS[placement.piece() as usize][placement.rotation() as usize];
-        self.set(placement.x() + i32::from(cells[0].0), placement.y() + i32::from(cells[0].1));
-        self.set(placement.x() + i32::from(cells[1].0), placement.y() + i32::from(cells[1].1));
-        self.set(placement.x() + i32::from(cells[2].0), placement.y() + i32::from(cells[2].1));
+        self.set(
+            placement.x() + i32::from(cells[0].0),
+            placement.y() + i32::from(cells[0].1),
+        );
+        self.set(
+            placement.x() + i32::from(cells[1].0),
+            placement.y() + i32::from(cells[1].1),
+        );
+        self.set(
+            placement.x() + i32::from(cells[2].0),
+            placement.y() + i32::from(cells[2].1),
+        );
         let clears = self.line_clears();
         if clears.any() {
             let n = clears.popcount();
@@ -287,6 +318,23 @@ impl<const N: usize> Board<N> {
         let count = clears.popcount();
         self.clear_lines(&clears);
         count
+    }
+
+    /// Pushes `count` garbage rows onto the bottom of the board, shifting existing content up.
+    /// Each garbage row has all columns filled except column `gap`.
+    pub fn push_garbage(&mut self, count: u8, gap: u8) {
+        *self = self.shifted(0, i32::from(count));
+
+        let row_mask = 0x3FFu64 & !(1u64 << gap);
+        let mut i = 0;
+        while i < count {
+            let band = (i32::from(i) / TLINES) as usize;
+            let offset = (i32::from(i) % TLINES) as u32;
+            if band < N {
+                self.0[band] |= row_mask << (offset * WIDTH as u32);
+            }
+            i += 1;
+        }
     }
 
     #[inline]

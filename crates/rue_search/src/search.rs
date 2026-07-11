@@ -1,141 +1,332 @@
-use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
-use rayon::prelude::*;
 use rue_core::{game::Game, placement::Move};
 use rue_eval::weights::Weights;
-use rustc_hash::FxHashSet;
+use rustc_hash::FxHashMap;
 
-use crate::config::SearchConfig;
+use crate::config::{
+    SearchConfig, SearchExpansionContext, SearchIterationParams, SearchNode, SearchResult,
+    SearchResultFull,
+};
 use crate::expand::{expand_node, expand_root};
-
-/// A node in the search tree.
-#[derive(Clone)]
-pub struct Node<const N: usize> {
-    /// The game state at this node.
-    pub game: Game<N>,
-    /// Score assigned by the evaluation function.
-    pub score: f64,
-    /// The root-level move that originated this path.
-    pub root_move: Move,
-    /// Sequence of moves from root to this node.
-    pub path: Arc<Vec<Move>>,
-}
-
-/// Result of a beam search.
-pub struct SearchResult<const N: usize> {
-    /// The best leaf node found.
-    pub best: Node<N>,
-    /// Best score per distinct root move, sorted descending.
-    pub root_scores: Vec<(Move, f64)>,
-}
 
 /// Run beam search from a game state.
 ///
 /// Returns `None` when no legal move exists.
-pub fn beam_search<const N: usize>(
+pub fn beam_search<const N: usize, W: Weights + Sync>(
     game: &Game<N>,
     config: &SearchConfig,
-    weights: &(impl Weights + Sync),
+    weights: &W,
 ) -> Option<SearchResult<N>> {
-    // Each tick consumes one piece from the queue, so total depth is bounded
-    // by the number of pieces available.
+    beam_search_forced(game, config, weights, None).map(|full| full.best)
+}
+
+/// Run beam search returning full results including per-root-move scores.
+pub fn beam_search_with_scores<const N: usize, W: Weights + Sync>(
+    game: &Game<N>,
+    config: &SearchConfig,
+    weights: &W,
+) -> Option<SearchResultFull<N>> {
+    beam_search_forced(game, config, weights, None)
+}
+
+/// Run beam search with optional forced root move.
+///
+/// When `forced` is `Some`, that move is protected from futility pruning
+/// and beam truncation — it always survives to the final beam so its score
+/// appears in `root_scores`.
+pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
+    game: &Game<N>,
+    config: &SearchConfig,
+    weights: &W,
+    forced: Option<Move>,
+) -> Option<SearchResultFull<N>> {
     let max_depth = config.depth.min(game.queue.len());
     if max_depth == 0 {
         return None;
     }
 
-    let mut beam = expand_root(game, weights, &Mutex::new(FxHashSet::default()));
+    if config.time_budget_ms.is_none() {
+        let mut tt = if config.futility_delta > 0.0 || config.depth > 4 {
+            Some(FxHashMap::default())
+        } else {
+            None
+        };
+        let params = SearchIterationParams {
+            game,
+            config,
+            weights,
+            max_depth,
+            beam_width: config.beam_width,
+            tt: &mut tt,
+            forced_root_move: forced,
+        };
+        return run_beam_search_iteration(params);
+    }
+
+    let max_width = config.beam_width;
+    if max_width == 0 {
+        return None;
+    }
+
+    let mut width = 200.min(max_width);
+    let mut best_full: Option<SearchResultFull<N>> = None;
+    let start = Instant::now();
+    let time_budget = config.time_budget_ms.map(Duration::from_millis);
+
+    loop {
+        let mut tt = Some(FxHashMap::default());
+        let params = SearchIterationParams {
+            game,
+            config,
+            weights,
+            max_depth,
+            beam_width: width,
+            tt: &mut tt,
+            forced_root_move: forced,
+        };
+
+        if let Some(full) = run_beam_search_iteration(params) {
+            let should_replace = best_full
+                .as_ref()
+                .is_none_or(|prev| full.best.best.score > prev.best.best.score);
+
+            if should_replace {
+                best_full = Some(full);
+            }
+        }
+
+        if width >= max_width {
+            break;
+        }
+
+        if let Some(budget) = time_budget
+            && start.elapsed() >= budget
+        {
+            break;
+        }
+
+        width = (width * 2).min(max_width);
+    }
+
+    best_full
+}
+
+#[allow(clippy::needless_pass_by_value)]
+fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
+    params: SearchIterationParams<'_, W, N>,
+) -> Option<SearchResultFull<N>> {
+    let mut ctx = SearchExpansionContext {
+        config: params.config,
+        weights: params.weights,
+        remaining_depth: params.max_depth.saturating_sub(1),
+        tt: params.tt,
+    };
+
+    let mut beam = expand_root(params.game, &mut ctx);
     if beam.is_empty() {
         return None;
     }
 
-    sort_prune_truncate(&mut beam, config);
+    apply_futility_pruning(&mut beam, params.config.futility_delta, params.forced_root_move);
+    beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+    truncate_search_beam(&mut beam, params.beam_width, params.forced_root_move);
 
-    let mut candidates = Vec::new();
+    for depth_idx in 0..params.max_depth.saturating_sub(1) {
+        let child_depth = depth_idx + 2;
+        ctx.remaining_depth = params.max_depth.saturating_sub(child_depth);
 
-    for _depth in 1..max_depth {
-        candidates.clear();
+        let mut next_beam: Vec<SearchNode<N>> =
+            Vec::with_capacity(params.beam_width.saturating_mul(2));
 
-        let seen = Mutex::new(FxHashSet::default());
-        let batches: Vec<Vec<Node<N>>> = beam
-            .par_iter()
-            .map(|node| expand_node(node, weights, &seen))
-            .collect();
-
-        for batch in batches {
-            candidates.extend(batch);
+        for node in &beam {
+            expand_node(node, &mut ctx, &mut next_beam);
         }
 
-        if candidates.is_empty() {
+        if next_beam.is_empty() {
             break;
         }
 
-        sort_prune_truncate(&mut candidates, config);
-        std::mem::swap(&mut beam, &mut candidates);
+        apply_futility_pruning(
+            &mut next_beam,
+            params.config.futility_delta,
+            params.forced_root_move,
+        );
+        next_beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+        truncate_search_beam(&mut next_beam, params.beam_width, params.forced_root_move);
+        beam = next_beam;
     }
 
-    let best = beam.first()?.clone();
-    let mut root_scores: Vec<(Move, f64)> = Vec::new();
+    // Quiescence extensions: extend loud nodes past the normal depth boundary
+    // so investment moves (mid-combo, active B2B) resolve before evaluation.
+    let q_max = params.config.quiescence_max_extensions;
+    let q_beam_width =
+        ((params.beam_width as f64) * params.config.quiescence_beam_fraction).ceil() as usize;
+    if q_max > 0 && q_beam_width > 0 {
+        let main_depth = params.max_depth.saturating_sub(1);
+        let loud_nodes: Vec<SearchNode<N>> = beam.iter().filter(|n| n.is_loud()).cloned().collect();
 
-    for node in &beam {
-        let root = node.root_move;
-        let score = node.score;
-        match root_scores.iter_mut().find(|(m, _)| *m == root) {
-            Some((_, s)) => {
-                if score > *s {
-                    *s = score;
+        if !loud_nodes.is_empty() {
+            let mut q_beam = loud_nodes;
+            q_beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+            q_beam.truncate(q_beam_width);
+
+            for ext in 0..q_max {
+                let child_depth = main_depth + ext + 2;
+                ctx.remaining_depth = params
+                    .max_depth
+                    .saturating_sub(child_depth.min(params.max_depth));
+
+                let mut next_q: Vec<SearchNode<N>> = Vec::with_capacity(q_beam_width * 2);
+
+                for node in &q_beam {
+                    expand_node(node, &mut ctx, &mut next_q);
+                }
+
+                if next_q.is_empty() {
+                    break;
+                }
+
+                next_q.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
+                next_q.truncate(q_beam_width);
+
+                for node in &next_q {
+                    if !node.is_loud() {
+                        beam.push(node.clone());
+                    }
+                }
+
+                q_beam = next_q.into_iter().filter(SearchNode::is_loud).collect();
+                if q_beam.is_empty() {
+                    break;
                 }
             }
-            None => root_scores.push((root, score)),
+
+            beam.extend(q_beam);
+            beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
         }
     }
 
-    root_scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let best = beam.first()?;
+    let result = SearchResult {
+        best: best.clone(),
+    };
 
-    Some(SearchResult { best, root_scores })
+    let mut root_scores: Vec<(Move, f64)> = Vec::new();
+    for node in &beam {
+        let raw = node.root_move;
+        match root_scores.iter_mut().find(|entry| entry.0 == raw) {
+            Some(entry) => {
+                if node.score > entry.1 {
+                    entry.1 = node.score;
+                }
+            }
+            None => root_scores.push((raw, node.score)),
+        }
+    }
+    root_scores.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let position_complexity = compute_position_complexity(&root_scores);
+
+    Some(SearchResultFull {
+        best: result,
+        root_scores,
+        position_complexity,
+        board_score: best.board_score,
+        attack_score: best.attack_score,
+        chain_score: best.chain_score,
+        path_attack: best.path_attack,
+        path_chain: best.path_chain,
+    })
 }
 
-/// Sort nodes descending by score, apply futility pruning, then truncate to beam width.
-///
-/// Uses `select_nth_unstable_by` to find the top-k in O(n) time, then sorts
-/// only the survivors (O(k log k)). Full sort is O(n log n) — this matters
-/// when the candidate pool is large (branching × `beam_width`).
-fn sort_prune_truncate<const N: usize>(nodes: &mut Vec<Node<N>>, config: &SearchConfig) {
-    let k = config.beam_width.min(nodes.len());
-    if k == 0 {
-        nodes.clear();
+/// Compute position complexity: variance of top-10 root move scores.
+fn compute_position_complexity(root_scores: &[(Move, f64)]) -> f64 {
+    let count = root_scores.len().min(10);
+    if count < 2 {
+        return 0.0;
+    }
+    let scores: Vec<f64> = root_scores.iter().take(10).map(|(_, s)| *s).collect();
+    let mean = scores.iter().sum::<f64>() / count as f64;
+    scores
+        .iter()
+        .map(|s| (s - mean).powi(2))
+        .sum::<f64>()
+        / count as f64
+}
+
+/// Truncate beam to `max_size`, protecting a forced root move from truncation.
+fn truncate_search_beam<const N: usize>(
+    beam: &mut Vec<SearchNode<N>>,
+    max_size: usize,
+    forced: Option<Move>,
+) {
+    if beam.len() <= max_size {
         return;
     }
 
-    // Partition so that the top-k elements occupy nodes[..k] (unsorted).
-    nodes.select_nth_unstable_by(k - 1, |a, b| b.score.total_cmp(&a.score));
+    // Extract forced node before truncation so it can't be lost
+    let forced_node = forced.and_then(|fm| {
+        let idx = beam.iter().position(|n| n.root_move == fm);
+        idx.map(|i| beam.swap_remove(i))
+    });
 
-    if config.futility_delta > 0.0 {
-        let best = nodes[..k]
+    beam.truncate(max_size);
+
+    // Re-insert forced node, evicting worst survivor if needed
+    if let Some(node) = forced_node {
+        let already_present = beam.iter().any(|n| n.root_move == node.root_move);
+        if !already_present {
+            if beam.len() >= max_size {
+                beam.pop(); // evict worst (last after sort)
+            }
+            beam.push(node);
+        }
+    }
+}
+
+fn apply_futility_pruning<const N: usize>(
+    nodes: &mut Vec<SearchNode<N>>,
+    futility_delta: f64,
+    forced: Option<Move>,
+) {
+    if nodes.is_empty() || futility_delta <= 0.0 {
+        return;
+    }
+
+    // Extract forced move node before pruning
+    let forced_node = forced.and_then(|fm| {
+        let idx = nodes.iter().position(|n| n.root_move == fm);
+        idx.map(|i| nodes.swap_remove(i))
+    });
+
+    let best_score = nodes
+        .iter()
+        .map(|node| node.score)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let cutoff = best_score - futility_delta;
+
+    nodes.retain(|node| node.score >= cutoff);
+
+    // Re-insert forced move node unconditionally
+    if let Some(forced_node) = forced_node {
+        let already_present = nodes
             .iter()
-            .map(|n| n.score)
-            .max_by(f64::total_cmp)
-            .unwrap();
-        let cutoff = best - config.futility_delta;
-        nodes.retain(|n| n.score >= cutoff);
+            .any(|n| n.root_move == forced_node.root_move);
+        if !already_present {
+            nodes.push(forced_node);
+        }
     }
-
-    // Sort the top portion so that beam[0] is the best node.
-    let k = config.beam_width.min(nodes.len());
-    if k > 1 {
-        nodes[..k].sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
-    }
-    nodes.truncate(config.beam_width);
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use rue_core::board::Board;
-    use rue_core::game::ruleset::SEASON_2;
+    use rue_core::game::garbage::GarbageQueue;
+use rue_core::game::ruleset::SEASON_2;
     use rue_core::piece::Piece;
-    use rue_eval::simple::Simple;
+
+    use rue_core::rng::Rng;
+use rue_eval::simple::Simple;
 
     use super::*;
 
@@ -144,13 +335,13 @@ mod tests {
     fn empty_game(queue: Vec<Piece>) -> Game<N> {
         Game {
             board: Board::EMPTY,
-            garbage_row: 0,
             hold: None,
             queue,
-            garbage_queue: vec![],
+            garbage_queue: GarbageQueue::new(),
             b2b_count: None,
             combo_count: None,
             ruleset: SEASON_2,
+            rng: Rng::new(),
         }
     }
 
@@ -170,6 +361,7 @@ mod tests {
             sent: 0.0,
             well_col: [0.0; 10],
             well_depth: 0.0,
+            garbage: 0.0,
         }
     }
 
@@ -224,7 +416,7 @@ mod tests {
     #[test]
     fn futility_pruning_removes_low_scores() {
         let mut nodes = vec![
-            Node {
+            SearchNode {
                 game: empty_game(vec![Piece::T]),
                 score: 100.0,
                 root_move: Move::new(
@@ -234,9 +426,15 @@ mod tests {
                     0,
                     rue_core::spin::Spin::None,
                 ),
-                path: Arc::new(vec![]),
+                root_hold_used: false,
+                path: vec![],
+                attack_score: 0.0,
+                chain_score: 0.0,
+                board_score: 0.0,
+                path_attack: 0.0,
+                path_chain: 0.0,
             },
-            Node {
+            SearchNode {
                 game: empty_game(vec![Piece::T]),
                 score: 50.0,
                 root_move: Move::new(
@@ -246,9 +444,15 @@ mod tests {
                     0,
                     rue_core::spin::Spin::None,
                 ),
-                path: Arc::new(vec![]),
+                root_hold_used: false,
+                path: vec![],
+                attack_score: 0.0,
+                chain_score: 0.0,
+                board_score: 0.0,
+                path_attack: 0.0,
+                path_chain: 0.0,
             },
-            Node {
+            SearchNode {
                 game: empty_game(vec![Piece::T]),
                 score: 10.0,
                 root_move: Move::new(
@@ -258,16 +462,17 @@ mod tests {
                     0,
                     rue_core::spin::Spin::None,
                 ),
-                path: Arc::new(vec![]),
+                root_hold_used: false,
+                path: vec![],
+                attack_score: 0.0,
+                chain_score: 0.0,
+                board_score: 0.0,
+                path_attack: 0.0,
+                path_chain: 0.0,
             },
         ];
 
-        let config = SearchConfig {
-            futility_delta: 60.0,
-            beam_width: 10,
-            ..SearchConfig::default()
-        };
-        sort_prune_truncate(&mut nodes, &config);
+        apply_futility_pruning(&mut nodes, 60.0, None);
 
         assert_eq!(
             nodes.len(),
@@ -287,13 +492,13 @@ mod tests {
         }
         let game = Game {
             board,
-            garbage_row: 0,
             hold: None,
             queue: vec![Piece::I],
-            garbage_queue: vec![],
+            garbage_queue: GarbageQueue::new(),
             b2b_count: None,
             combo_count: None,
             ruleset: SEASON_2,
+            rng: Rng::new(),
         };
         let config = SearchConfig::default();
         let weights = zero_weights();
@@ -312,7 +517,7 @@ mod tests {
         };
         let weights = zero_weights();
 
-        let result = beam_search(&game, &config, &weights);
+        let result = beam_search_with_scores(&game, &config, &weights);
         assert!(result.is_some());
         let res = result.unwrap();
 
@@ -321,7 +526,7 @@ mod tests {
             "should have at least one root score"
         );
         assert_eq!(
-            res.root_scores[0].0, res.best.root_move,
+            res.root_scores[0].0, res.best.best.root_move,
             "top root_score must match best root_move"
         );
     }

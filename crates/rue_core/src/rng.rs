@@ -2,6 +2,7 @@
 use crate::piece::Piece;
 
 /// A piece randomiser. Follows the implementation in TETR.IO as exactly as possible.
+#[derive(Clone)]
 pub struct Rng {
     /// The current seed of the randomiser.
     pub seed: i32,

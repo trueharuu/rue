@@ -32,6 +32,8 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
     let mut missing = [Board::<N>::EMPTY; 4];
     let mut search = [Board::<N>::EMPTY; 4];
+    let mut via_rotation = [Board::<N>::EMPTY; 4];
+    let mut via_5th_kick = [Board::<N>::EMPTY; 4];
 
     let mut remaining: u32 = 0;
     let mut done: u32;
@@ -45,6 +47,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
                 unroll!(r, cs, {
                     let landable = cands[r] & !missing[r];
+
                     let immobile = if SPINS.has_immobile() {
                         landable
                             & !usable[r].shifted(0, -1)
@@ -54,7 +57,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     } else {
                         Board::<N>::EMPTY
                     };
-                    
+
                     // todo: 3-corner t-spin detection
                     match SPINS {
                         Spins::None => {
@@ -65,7 +68,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                         }
                         Spins::AllMini => {
                             moves.none[r] = landable & !immobile;
-                            moves.mini[r] = immobile
+                            moves.mini[r] = immobile;
                         }
                         Spins::AllPlus => {
                             moves.none[r] = landable & !immobile;
@@ -126,7 +129,6 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 finish!();
             }
 
-            // Two rounds of horizontal tucks (pure translation, no rotation)
             unroll!(r, cs, {
                 let mut s = search[r];
                 s = horizontal_tuck(s, &usable[r]);
@@ -135,7 +137,6 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
             });
 
             if P.group3() {
-                // Propagate seeds between group-3 rotations (pure translation)
                 unroll!(r, 4, {
                     search[r] |= (search[(r + 1) & 3] | search[(r + 3) & 3]) & usable[r];
                 });
@@ -193,6 +194,10 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     unsearched[r1] &= !res;
                     done &= !(1u32 << r1);
                     missing[r1c] &= !res;
+                    via_rotation[r1] |= res;
+                    if $kick_idx == 4 {
+                        via_5th_kick[r1] |= res;
+                    }
 
                     if missing[r1c].any() {
                         remaining |= 1 << r1c;

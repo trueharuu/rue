@@ -9,6 +9,7 @@ rue_nav = { version = "0.1.0", path = "../rue_nav" }
 rue_eval = { version = "0.1.0", path = "../rue_eval" }
 rustc-hash = "2"
 rayon = "1"
+smallvec = "1.15.2"
 
 [lints]
 workspace = true

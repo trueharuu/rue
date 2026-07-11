@@ -7,11 +7,14 @@ use crate::{
 };
 
 /// Simple weights as a baseline comparison.
+#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Simple {
     /// Current B2B of the game.
     pub b2b: f64,
     /// Current combo of the game.
     pub combo: f64,
+    /// Total incoming garbage in the queue.
+    pub garbage: f64,
     /// The height of the board.
     pub height: f64,
     /// The height of the board, from the midpoint to the top.
@@ -39,6 +42,10 @@ pub struct Simple {
 }
 
 impl Weights for Simple {
+    fn name() -> &'static str {
+        "simple"
+    }
+
     fn evaluate<const N: usize>(&self, game: &Game<N>, ctx: &AttackContext) -> f64 {
         let mut score = 0.0;
         let heights = features::heights(&game.board);
@@ -75,14 +82,12 @@ impl Weights for Simple {
             score += self.b2b * f64::from(b.clamp(0, 8));
         }
 
-        score += self.active[ctx.line_clears]
-            [ctx.placement.spin() as usize];
-        score += self.sent * ctx.sent;
+        score += self.active[ctx.lines_cleared as usize][ctx.placement.spin() as usize];
+        score += self.sent * f64::from(ctx.attack_sent);
+
+        score += self.combo * f64::from(game.combo_count.unwrap_or(0));
+        score += self.garbage * f64::from(game.garbage_queue.total());
 
         score
-    }
-
-    fn flatten(&self) -> Vec<f64> {
-        vec![self.height]
     }
 }

@@ -1,7 +1,7 @@
 target/
 node_modules/
 .env
-weights/
 ref/
 docs/
 .opencode
+run.txt

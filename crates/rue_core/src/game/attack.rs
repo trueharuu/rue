@@ -1,5 +1,5 @@
 //! Utilities for attack calculation.
-use crate::{game::ruleset::Ruleset, placement::Move};
+use crate::{game::ruleset::Ruleset, piece::Piece, placement::Move, spin::Spin};
 
 /// The chaining bonus applied for rulesets where [`Ruleset::b2b_chaining`] is true.
 #[must_use]
@@ -20,23 +20,58 @@ pub fn b2b_chaining_bonus(b2b: u32, ruleset: &Ruleset) -> f64 {
     floored + third
 }
 
+/// The amount of lines cleared.
+#[allow(missing_docs)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Clear {
+    None,
+    Single,
+    Double,
+    Triple,
+    Quad,
+    Penta,
+}
+
+impl Clear {
+    /// Returns the number of lines cleared.
+    #[inline]
+    #[must_use]
+    pub const fn count(&self) -> u8 {
+        match self {
+            Clear::None => 0,
+            Clear::Single => 1,
+            Clear::Double => 2,
+            Clear::Triple => 3,
+            Clear::Quad => 4,
+            Clear::Penta => 5,
+        }
+    }
+}
+
 /// Full statistics for an attack.
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AttackContext {
-    /// The piece placed.
+    pub clear_type: Clear,
+    pub spin_type: Spin,
+    pub lines_cleared: u8,
+    pub attack_sent: f32,
+    pub b2b_before: u8,
+    pub b2b_after: u8,
+    pub combo_before: u32,
+    pub combo_after: u32,
+    pub is_surge_release: bool,
+    pub is_garbage_clear: bool,
+    pub is_perfect_clear: bool,
+    pub piece: Piece,
     pub placement: Move,
-    /// Total number of line clears performed.
-    pub line_clears: usize,
-    /// Whether the resulting board is a Perfect Clear.
-    pub is_pc: bool,
-    /// Total number of lines sent, prior to garbage calculations.
-    pub outgoing: f64,
-    /// Whether this is a B2B clear.
-    pub is_b2b: bool,
-    /// Total garbage canceled by the clear.
-    pub garbage_cancelled: f64,
-    /// Total garbage tanked by this placement. Mututally exclusive with `garbage_cancelled` and `sent`.
-    pub garbage_tanked: f64,
-    /// Total number of lines sent *to the opponent*.
-    pub sent: f64,
+}
+
+impl AttackContext {
+    /// Returns true if this attack continues a back-to-back chain.
+    #[inline]
+    #[must_use]
+    pub const fn is_b2b(&self) -> bool {
+        self.b2b_after > self.b2b_before
+    }
 }

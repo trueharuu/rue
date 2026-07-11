@@ -1,12 +1,11 @@
 //! Beam search engine for Rue.
 
 #![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 pub mod config;
+pub mod expand;
 pub mod search;
 
-/// Internal node expansion helpers.
-pub mod expand;
-
-pub use config::SearchConfig;
-pub use search::{beam_search, Node, SearchResult};
+pub use config::{SearchConfig, SearchResult, SearchResultFull, SearchNode};
+pub use search::{beam_search, beam_search_forced, beam_search_with_scores};

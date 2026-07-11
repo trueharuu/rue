@@ -39,4 +39,10 @@ impl Spins {
     pub const fn has_immobile(self) -> bool {
         matches!(self, Spins::AllMini | Spins::AllPlus)
     }
+
+    /// Whether the policy utilizes 3-corner T-spin detection.
+    #[must_use]
+    pub const fn has_3corner(self) -> bool {
+        matches!(self, Spins::T | Spins::AllPlus | Spins::AllMini)
+    }
 }

@@ -1,5 +1,7 @@
 //! Command execution contexts.
 
+use triangle::{Client, classes::room::Room};
+
 /// The execution context passed to a command handler.
 ///
 /// Wraps the argument text and provides helpers for parsing typed
@@ -9,27 +11,31 @@ pub struct Context<'a> {
     args_text: &'a str,
     /// The current offset into the argument text.
     offset: usize,
-    /// Channel used to send reply messages back to the source.
-    reply_tx: &'a tokio::sync::mpsc::Sender<String>,
+    /// The raw [`Chat`] event.
+    event: &'a triangle::types::events::recv::room::Chat,
+    /// The current [`Room`] instance.
+    room: &'a Room,
+    /// The client.
+    client: &'a Client,
 }
 
 impl<'a> Context<'a> {
     /// Create a new context from the argument portion of a message.
     #[must_use]
-    pub fn new(args_text: &'a str, reply_tx: &'a tokio::sync::mpsc::Sender<String>) -> Self {
+    pub fn new(args_text: &'a str, event: &'a triangle::types::events::recv::room::Chat, room: &'a Room, client: &'a Client) -> Self {
         Self {
             args_text,
             offset: 0,
-            reply_tx,
+            event,
+            room,
+            client,
         }
     }
 
     /// Send a reply message back to the source.
     pub async fn reply(&self, message: &str) -> anyhow::Result<()> {
-        self.reply_tx
-            .send(message.to_string())
-            .await
-            .map_err(|e| anyhow::anyhow!("failed to send reply: {e}"))
+        self.room.chat(message).await?;
+        Ok(())
     }
 
     /// Return the remaining unparsed argument text.

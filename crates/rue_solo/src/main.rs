@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use fumen::Fumen;
 use rue_core::{
-    board::Board, game::{Game, garbage::GarbageQueue, ruleset::SEASON_2}, piece::Piece, placement::Move, render::render_with, rng::{Rng, RngKind}, spin::Spins,
+    board::Board, game::{Game, garbage::GarbageQueue, ruleset::SEASON_2}, piece::Piece, placement::Move, render::render_with, rng::{Rng, RngKind},
 };
 use rue_eval::{simple::Simple, weights::Weights};
 
@@ -29,7 +29,7 @@ pub fn main() {
         ruleset: SEASON_2,
         rng: Rng::new(),
     };
-    game.ruleset.spins = Spins::AllPlus;
+    // game.ruleset.spins = Spins::T;
 
     let mut fu = Fumen::default();
 
@@ -41,7 +41,7 @@ pub fn main() {
     let i_total = Instant::now();
     loop {
         if pieces.is_multiple_of(14) {
-            game.garbage_queue.recieve(4, u32::MAX);
+            // game.garbage_queue.recieve(4, u32::MAX);
         }
         let instant = Instant::now();
         let best = best_placement(&game, &model);
@@ -150,9 +150,10 @@ use rue_search::{SearchConfig, beam_search};
 #[must_use]
 pub fn best_placement<const N: usize>(game: &Game<N>, model: &impl Weights) -> Option<(Move, f64)> {
     let cfg = SearchConfig {
-        beam_width: 1000,
+        beam_width: 5000,
         depth: 7,
         futility_delta: 0.0,
+        time_budget_ms: Some(250),
         ..SearchConfig::default()
     };
 

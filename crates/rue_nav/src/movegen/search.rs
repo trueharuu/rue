@@ -1,11 +1,11 @@
 //! Reachability search for piece placements across translations and SRS kicks.
-//! 
+//!
 //! A note on spin detection:
-//! 
+//!
 //! Spin policies are ordered. Any valid spin under [`Spins::T`] is also valid under [`Spins::AllMini`] and [`Spins::AllPlus`].
 //! Any valid spin under [`Spins::AllMini`] is also valid under [`Spins::AllPlus`].
 //! The only difference between [`Spins::AllMini`] and [`Spins::AllPlus`] is that the latter emits immobile placements as full spins, while the former emits them as mini spins.
-//! 
+//!
 //! On any ruleset that meets [`Spins::has_3corner`], these conditions emit a spin placement:
 //! - The piece is a [`Piece::T`]
 //! - The placement was reached via rotation.
@@ -13,7 +13,7 @@
 //! - If two "front" corners are occupied, the placement is a [`Spin::Full`]. Otherwise, it is a [`Spin::Mini`].
 //! - However, if this placement was reached via the 5th SRS kick, it is always a [`Spin::Full`].
 //! - Any sitation where the placement can be reached with both rotation and by translation should emit for both spin types.
-//! 
+//!
 //! On any ruleset that meets [`Spins::has_immobile`], these conditions emit a spin placement:
 //! - The piece is anything except [`Piece::O`].
 //! - The placement is immobile, meaning it cannot be moved in any direction (up, down, left, right).
@@ -80,22 +80,63 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                         Board::<N>::EMPTY
                     };
 
+                    let ul = (*b).shifted(1, -1) | Board::col_mask(0);
+                    let ur = (*b).shifted(-1, -1) | Board::col_mask(9);
+                    let dl = (*b).shifted(1, 1) | Board::col_mask(0);
+                    let dr = (*b).shifted(-1, 1) | Board::col_mask(9);
+
+                    let has3 = (ul & ur & dl) | (ul & ur & dr) | (ul & dl & dr) | (ur & dl & dr);
+
+                    let front2 = match r {
+                        0 => ul & ur,
+                        1 => ur & dr,
+                        2 => dr & dl,
+                        3 => dl & ul,
+                        _ => unreachable!(),
+                    };
+
+                    moves.landed[r] = landable;
+                    moves.front2[r] = has3 & front2 & cands[r];
+                    moves.has3[r] = has3 & cands[r];
+                    moves.candidates[r] = usable[r];
+                    moves.via_5th_kick[r] = via_5th_kick[r];
+                    moves.via_rotation[r] = via_rotation[r];
+
+                    let is_t = if matches!(P, Piece::T) {
+                        !Board::<N>::EMPTY
+                    } else {
+                        Board::<N>::EMPTY
+                    };
+                    let is_t_full = is_t & has3 & (front2 | via_5th_kick[r]) & via_rotation[r] & landable;
+                    let is_t_mini = is_t & has3 & !front2 & !via_5th_kick[r] & via_rotation[r] & landable;
+
                     // todo: 3-corner t-spin detection
                     match SPINS {
                         Spins::None => {
-                            moves.none[r] = landable;
+                            moves.none[r] |= landable;
                         }
                         Spins::T => {
-                            moves.none[r] = landable;
+                            moves.none[r] |= landable & !is_t_full;
+
+                            moves.mini[r] |= is_t_mini;
+                            moves.full[r] |= is_t_full;
                         }
                         Spins::AllMini => {
-                            moves.none[r] = landable & !immobile;
-                            moves.mini[r] = immobile;
+                            moves.none[r] |= landable & !immobile;
+                            moves.mini[r] |= immobile;
+
+                            moves.none[r] |= landable & (!is_t_mini | immobile);
+                            moves.mini[r] |= is_t_mini;
+                            moves.full[r] |= is_t_full;
                         }
                         Spins::AllPlus => {
-                            moves.none[r] = landable & !immobile;
-                            moves.full[r] = immobile;
-                        },
+                            moves.none[r] |= landable & !immobile;
+                            moves.full[r] |= immobile;
+
+                            moves.none[r] |= landable & (!is_t_mini | immobile);
+                            moves.mini[r] |= is_t_mini;
+                            moves.full[r] |= is_t_full;
+                        }
                     }
                 });
                 return (moves, 0);
@@ -166,7 +207,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
             remaining = 0;
             unroll!(r, cs, {
-                missing[r] &= !search[r];
+                missing[r] ^= search[r];
                 if missing[r].any() {
                     remaining |= 1 << r;
                 }
@@ -213,18 +254,19 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 let res = result & unsearched[r1];
                 if res.any() {
                     search[r1] |= res;
-                    unsearched[r1] &= !res;
-                    done &= !(1u32 << r1);
-                    missing[r1c] &= !res;
-                    via_rotation[r1] |= res;
+                    unsearched[r1] ^= res;
+                    done ^= 1u32 << r1;
+                    missing[r1c] ^= res;
+
+                    via_rotation[r1c] |= res;
                     if $kick_idx == 4 {
-                        via_5th_kick[r1] |= res;
+                        via_5th_kick[r1c] |= res;
                     }
 
                     if missing[r1c].any() {
                         remaining |= 1 << r1c;
                     } else {
-                        remaining &= !(1u32 << r1c);
+                        remaining ^= (1u32 << r1c);
                     }
                 }
             }
@@ -250,11 +292,11 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     unsearched[$r] = unsearched[$r] ^ temp;
                 }
 
-                missing[rc] &= !search[$r];
+                missing[rc] ^= search[$r];
                 if missing[rc].any() {
                     remaining |= 1 << rc;
                 } else {
-                    remaining &= !(1u32 << rc);
+                    remaining ^= (1u32 << rc);
                 }
 
                 if remaining == 0 {

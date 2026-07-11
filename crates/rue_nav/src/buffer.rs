@@ -20,7 +20,19 @@ pub struct Moves<const N: usize> {
     pub mini: [Board<N>; 4],
     /// Landable positions classified as full spins.
     pub full: [Board<N>; 4],
-}
+    /// All landed positions.
+    pub landed: [Board<N>; 4],
+    /// Positions with at least 3 of 4 corners filled.
+    pub has3: [Board<N>; 4],
+    /// Susbet of `has3` where the two front corners are filled.
+    pub front2: [Board<N>; 4],
+    /// Positions where the piece does not collide with terrain.
+    pub candidates: [Board<N>; 4],
+    /// Landed positions discovered by rotation.
+    pub via_rotation: [Board<N>; 4],
+    /// Landed positions discovered by the 5th rotation kick.
+    pub via_5th_kick: [Board<N>; 4],
+} 
 
 impl<const N: usize> Moves<N> {
     /// Empty move buffer with no landable cells in any bucket.
@@ -31,6 +43,12 @@ impl<const N: usize> Moves<N> {
             none: [Board::EMPTY; 4],
             mini: [Board::EMPTY; 4],
             full: [Board::EMPTY; 4],
+            landed: [Board::EMPTY; 4],
+            has3: [Board::EMPTY; 4],
+            candidates: [Board::EMPTY; 4],
+            front2: [Board::EMPTY; 4],
+            via_5th_kick: [Board::EMPTY; 4],
+            via_rotation: [Board::EMPTY; 4],
         }
     }
 

@@ -6,7 +6,6 @@ use crate::{buffer::Moves, movegen::search::gen_impl};
 
 pub mod op;
 pub mod search;
-pub mod spin;
 
 /// Generate all landable placements for a piece on the given board.
 ///

@@ -1,6 +1,11 @@
 //! Binary entrypoint for the [`rue_nav`] performance test.
 
-use rue_core::{board::Board, piece::Piece, render::render_with, spin::Spins};
+use rue_core::{
+    board::Board,
+    piece::Piece,
+    render::{self, render_with},
+    spin::{Spin, Spins},
+};
 use rue_nav::movegen;
 use rue_perft::{height::parse_queue, perft_mt};
 use std::time::Instant;
@@ -25,11 +30,16 @@ pub fn main() {
     #[allow(clippy::items_after_statements)]
     const P: Piece = Piece::T;
     let mut b = Board::<2>::EMPTY;
-    b.set_many(&[(0, 0), (1, 0), (0, 1), (3, 0), (3, 2)]);
-    let m = movegen::generate_inlined::<{ P }, { Spins::AllPlus }, 2>(&b, 20, 0);
-    for p in m.iter() {
+    b.set_many(&[(0,0),(0,1),(0,2),(0,3),(2,0),(3,0),(3,1),(1,4),(2,2),(3,2)]);
+    let m = movegen::generate_inlined::<{ P }, { Spins::AllMini }, 2>(&b, 20, 0);
+    for p in m.iter().filter(|x| x.spin() == Spin::Full) {
         println!("{}", render_with(b, &p));
     }
+
+    println!(
+        "{}",
+        render::merge(b, m.via_rotation[1])
+    );
 }
 
 /// Format a number with K/M/B suffixes for thousands/millions/billions.

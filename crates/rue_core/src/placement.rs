@@ -6,7 +6,7 @@ use crate::{header::rot_cell, piece::Piece, rotation::Rotation, spin::Spin};
 
 /// A move is a 32-bit integer with the following layout:
 /// Piece (3 bits) | Rotation (2 bits) | X (4 bits) | Y (8 bits) | Spin (2 bits) | Unused (13 bits)
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Move(u32);
 
 impl Move {

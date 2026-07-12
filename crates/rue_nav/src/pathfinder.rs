@@ -37,40 +37,49 @@ pub enum Input {
     SoftDrop,
     /// Instantly drop to lowest valid position.
     HardDrop,
-    /// [`HardDrop`], without locking the piece.
-    SonicDrop,
+    // /// [`HardDrop`], without locking the piece.
+    // SonicDrop,
 }
 
 /// A sequence of controller inputs that reach a target placement.
 #[derive(Debug)]
 pub struct Inputs(pub SmallVec<[Input; 16]>);
 
-const ROOT: u32 = u32::MAX;
+/// The root index for the pathfinding search tree.
+pub const ROOT: u32 = u32::MAX;
 
-struct PathNode {
-    input: Input,
-    prev: u32,
+/// A node in the pathfinding search tree.
+pub struct PathNode {
+    /// The input that led to this node.
+    pub input: Input,
+    /// The index of the previous node in the search tree.
+    pub prev: u32,
 }
 
+/// A ghost move in the pathfinding search tree.
 #[derive(Clone, Copy)]
-struct GhostMove {
-    r: usize,
-    x: i32,
-    y: i32,
-    prev: u32,
-    spin: usize,
+#[allow(missing_docs)]
+pub struct GhostMove {
+    pub r: usize,
+    pub x: i32,
+    pub y: i32,
+    pub prev: u32,
+    pub spin: usize,
 }
 
+/// Determines if an x-coordinate is within the valid range of the board.
 #[inline]
 fn is_ok_x(x: i32) -> bool {
     (0..WIDTH).contains(&x)
 }
 
+/// Determines if a y-coordinate is within the valid range of the board.
 #[inline]
 fn is_ok_y(y: i32, h: i32) -> bool {
     (0..h).contains(&y)
 }
 
+/// Finds a sequence of inputs that reaches a target placement from the spawn position.
 fn pathfind_impl<const P: Piece, const N: usize>(
     board: &Board<N>,
     target: Move,
@@ -270,27 +279,27 @@ fn pathfind_impl<const P: Piece, const N: usize>(
             }
         }
 
-        {
-            let ly = m.y - 1;
-            if is_ok_y(ly, h) && usable[P.canonical_rotation(m.r)].get(m.x, ly) {
-                let entry_idx = spin_index(spin) * 4 + m.r;
-                if !searched[entry_idx].get(m.x, ly) {
-                    searched[entry_idx].set(m.x, ly);
-                    let prev = internal.len() as u32;
-                    internal.push(PathNode {
-                        input: Input::SoftDrop,
-                        prev: m.prev,
-                    });
-                    leaf.push_back(GhostMove {
-                        r: m.r,
-                        x: m.x,
-                        y: ly,
-                        prev,
-                        spin,
-                    });
-                }
-            }
-        }
+        // {
+        //     let ly = m.y - 1;
+        //     if is_ok_y(ly, h) && usable[P.canonical_rotation(m.r)].get(m.x, ly) {
+        //         let entry_idx = spin_index(spin) * 4 + m.r;
+        //         if !searched[entry_idx].get(m.x, ly) {
+        //             searched[entry_idx].set(m.x, ly);
+        //             let prev = internal.len() as u32;
+        //             internal.push(PathNode {
+        //                 input: Input::SoftDrop,
+        //                 prev: m.prev,
+        //             });
+        //             leaf.push_back(GhostMove {
+        //                 r: m.r,
+        //                 x: m.x,
+        //                 y: ly,
+        //                 prev,
+        //                 spin,
+        //             });
+        //         }
+        //     }
+        // }
 
         // sonic drop
         {
@@ -305,7 +314,7 @@ fn pathfind_impl<const P: Piece, const N: usize>(
                     searched[entry_idx].set(m.x, ly + 1);
                     let prev = internal.len() as u32;
                     internal.push(PathNode {
-                        input: Input::SonicDrop,
+                        input: Input::SoftDrop,
                         prev: m.prev,
                     });
                     leaf.push_back(GhostMove {

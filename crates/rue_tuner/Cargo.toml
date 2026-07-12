@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+rue_core = { version = "0.1.0", path = "../rue_core" }
+rue_eval = { version = "0.1.0", path = "../rue_eval" }
+rue_nav = { version = "0.1.0", path = "../rue_nav" }
+rue_search = { version = "0.1.0", path = "../rue_search" }
+serde = "1.0.228"
+serde_json = "1.0.150"
+rand = "0.9"
+clap = { version = "4", features = ["derive"] }
 
 [lints]
 workspace = true

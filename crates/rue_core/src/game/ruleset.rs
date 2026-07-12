@@ -118,7 +118,7 @@ pub enum ComboTable {
 
 /// The currently active rule set for TETR.IO Tetra League Season 2.
 pub const SEASON_2: Ruleset = Ruleset {
-    spins: Spins::AllMini,
+    spins: Spins::AllPlus,
     single: 0,
     double: 1,
     triple: 2,

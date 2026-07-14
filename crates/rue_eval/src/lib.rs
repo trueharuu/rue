@@ -4,4 +4,5 @@ pub mod features;
 pub mod simple;
 pub mod tunable;
 pub mod weights;
+pub mod deep;
 

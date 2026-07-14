@@ -1,3 +1,4 @@
+#![allow(missing_docs, clippy::missing_docs_in_private_items)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use rue_core::board::Board;
 use rue_core::game::garbage::GarbageQueue;

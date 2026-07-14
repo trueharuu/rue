@@ -1,6 +1,6 @@
 //! `Weights` trait.
 
-use rue_core::game::{Game, attack::AttackContext};
+use rue_core::{game::{Game, attack::AttackContext}, placement::Move};
 
 /// A series of weights.
 pub trait Weights: Sized + Send + Sync {
@@ -9,6 +9,18 @@ pub trait Weights: Sized + Send + Sync {
 
     /// Evaluate a singular position on the board and return a score.
     fn evaluate<const N: usize>(&self, game: &Game<N>, context: &AttackContext) -> f64;
+
+    /// Evaluate with piece history reconstructed from the search path.
+    /// By default ignores history, delegating to [`Weights::evaluate`].
+    fn evaluate_with_path<const N: usize>(
+        &self,
+        game: &Game<N>,
+        context: &AttackContext,
+        path: &[Move],
+    ) -> f64 {
+        let _ = path;
+        self.evaluate(game, context)
+    }
 
     /// Unique, time-based hash for weight files.
     #[must_use]

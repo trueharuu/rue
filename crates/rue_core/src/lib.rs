@@ -15,3 +15,4 @@ pub mod rotation;
 pub mod spin;
 pub mod game;
 pub mod rng;
+pub mod history;

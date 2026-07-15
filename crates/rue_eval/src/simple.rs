@@ -95,42 +95,48 @@ impl Weights for Simple {
 
 /// Parameter names for `Simple`, indexed 0..38.
 const SIMPLE_PARAM_NAMES: [&str; 38] = [
-    "b2b", "combo", "garbage", "height", "height_half", "height_three_quarters",
-    "bumpiness", "bumpiness_sq", "cell_coveredness", "holes", "row_transitions",
-    "active[0][0]", "active[0][1]", "active[0][2]",
-    "active[1][0]", "active[1][1]", "active[1][2]",
-    "active[2][0]", "active[2][1]", "active[2][2]",
-    "active[3][0]", "active[3][1]", "active[3][2]",
-    "active[4][0]", "active[4][1]", "active[4][2]",
+    "b2b",
+    "combo",
+    "garbage",
+    "height",
+    "height_half",
+    "height_three_quarters",
+    "bumpiness",
+    "bumpiness_sq",
+    "cell_coveredness",
+    "holes",
+    "row_transitions",
+    "active[0][0]",
+    "active[0][1]",
+    "active[0][2]",
+    "active[1][0]",
+    "active[1][1]",
+    "active[1][2]",
+    "active[2][0]",
+    "active[2][1]",
+    "active[2][2]",
+    "active[3][0]",
+    "active[3][1]",
+    "active[3][2]",
+    "active[4][0]",
+    "active[4][1]",
+    "active[4][2]",
     "sent",
-    "well_col[0]", "well_col[1]", "well_col[2]", "well_col[3]", "well_col[4]",
-    "well_col[5]", "well_col[6]", "well_col[7]", "well_col[8]", "well_col[9]",
+    "well_col[0]",
+    "well_col[1]",
+    "well_col[2]",
+    "well_col[3]",
+    "well_col[4]",
+    "well_col[5]",
+    "well_col[6]",
+    "well_col[7]",
+    "well_col[8]",
+    "well_col[9]",
     "well_depth",
 ];
 
 /// Per-parameter `(min, max)` bounds for `Simple`, indexed 0..38.
-const SIMPLE_PARAM_BOUNDS: [(f64, f64); 38] = [
-    (0.0, 10.0),    // b2b
-    (0.0, 10.0),    // combo
-    (-10.0, 0.0),   // garbage
-    (-5.0, 0.0),    // height
-    (-5.0, 0.0),    // height_half
-    (-5.0, 0.0),    // height_three_quarters
-    (-5.0, 0.0),    // bumpiness
-    (-5.0, 0.0),    // bumpiness_sq
-    (-10.0, 0.0),   // cell_coveredness
-    (-10.0, 0.0),   // holes
-    (-5.0, 0.0),    // row_transitions
-    (0.0, 20.0), (0.0, 20.0), (0.0, 20.0),   // active[0][*]
-    (0.0, 20.0), (0.0, 20.0), (0.0, 20.0),   // active[1][*]
-    (0.0, 20.0), (0.0, 20.0), (0.0, 20.0),   // active[2][*]
-    (0.0, 20.0), (0.0, 20.0), (0.0, 20.0),   // active[3][*]
-    (0.0, 20.0), (0.0, 20.0), (0.0, 20.0),   // active[4][*]
-    (0.0, 10.0),    // sent
-    (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0),  // well_col[0..4]
-    (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0), (-5.0, 5.0),  // well_col[5..9]
-    (0.0, 5.0),     // well_depth
-];
+const SIMPLE_PARAM_BOUNDS: [(f64, f64); 38] = [(-1.0, 1.0); 38];
 
 impl Tunable for Simple {
     fn param_count() -> usize {
@@ -202,7 +208,12 @@ impl Tunable for Simple {
     }
 
     fn from_vec(v: &[f64]) -> Self {
-        assert_eq!(v.len(), 38, "Simple::from_vec: expected 38 parameters, got {}", v.len());
+        assert_eq!(
+            v.len(),
+            38,
+            "Simple::from_vec: expected 38 parameters, got {}",
+            v.len()
+        );
         let mut s = Self {
             b2b: v[0],
             combo: v[1],
@@ -220,7 +231,7 @@ impl Tunable for Simple {
             well_col: [0.0; 10],
             well_depth: v[37],
         };
-        
+
         for idx in 0..15 {
             s.active[idx / 3][idx % 3] = v[11 + idx];
         }

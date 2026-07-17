@@ -1,5 +1,8 @@
 //! Utilities for attack calculation.
-use crate::{game::ruleset::Ruleset, piece::Piece, placement::Move, spin::Spin};
+use crate::game::ruleset::Ruleset;
+use crate::piece::Piece;
+use crate::placement::Move;
+use crate::spin::Spin;
 
 /// The chaining bonus applied for rulesets where [`Ruleset::b2b_chaining`] is true.
 #[must_use]
@@ -10,7 +13,7 @@ pub fn b2b_chaining_bonus(b2b: u32, ruleset: &Ruleset) -> f64 {
 
     let log_part = (1.0 + f64::from(b2b) * ruleset.b2b_chaining_log).ln();
     let floored = (1.0 + log_part).floor();
-    
+
     let remainder = (1.0 + log_part) - floored;
     let third = if remainder > 0.0 {
         remainder / 3.0

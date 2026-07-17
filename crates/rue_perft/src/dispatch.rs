@@ -1,6 +1,7 @@
 //! Piece type dispatch and entry point to recursive search.
 
-use rue_core::{board::Board, piece::Piece};
+use rue_core::board::Board;
+use rue_core::piece::Piece;
 
 use super::traversal::with_piece;
 

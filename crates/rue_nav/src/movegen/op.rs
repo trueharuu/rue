@@ -1,6 +1,8 @@
 //! Low-level move-generation operators used by the search routine.
 
-use rue_core::{board::Board, data::KickTab, piece::Piece};
+use rue_core::board::Board;
+use rue_core::data::KickTab;
+use rue_core::piece::Piece;
 
 #[inline]
 /// Applies one kick candidate in-place, accumulating translated hits into `result`.
@@ -12,7 +14,7 @@ pub fn kick_step<const P: Piece, const D: usize, const R: usize, const I: usize,
     let kx = i32::from(KickTab::<P, D, R>::ROW[I].0) + KickTab::<P, D, R>::OFF_X;
     let ky = i32::from(KickTab::<P, D, R>::ROW[I].1) + KickTab::<P, D, R>::OFF_Y;
     *result |= temp.shifted(kx, ky);
-    
+
     if I != 4 {
         *temp &= !usable_r1c.shifted(-kx, -ky);
     }

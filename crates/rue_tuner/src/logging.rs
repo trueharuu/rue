@@ -16,6 +16,7 @@ impl SpsaLogger {
     ///
     /// The CSV header includes `iteration,ak,ck,j_plus,j_minus,gradient_norm,best_fitness`
     /// followed by `theta_0..theta_{p-1}`.
+    #[must_use]
     pub fn create(csv_path: &Path, param_count: usize) -> Self {
         let file = std::fs::File::create(csv_path)
             .unwrap_or_else(|e| panic!("failed to create {}: {e}", csv_path.display()));

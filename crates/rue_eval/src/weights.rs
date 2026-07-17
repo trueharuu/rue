@@ -1,6 +1,8 @@
 //! `Weights` trait.
 
-use rue_core::{game::{Game, attack::AttackContext}, placement::Move};
+use rue_core::game::Game;
+use rue_core::game::attack::AttackContext;
+use rue_core::placement::Move;
 
 /// A series of weights.
 pub trait Weights: Sized + Send + Sync {

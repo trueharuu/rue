@@ -24,7 +24,9 @@ pub trait Tunable: Weights + Clone {
 
     /// Bulk export all parameters as a `Vec<f64>` (length == `param_count()`).
     fn to_vec(&self) -> Vec<f64> {
-        (0..Self::param_count()).map(|i| self.get_param(i)).collect()
+        (0..Self::param_count())
+            .map(|i| self.get_param(i))
+            .collect()
     }
 
     /// Bulk import from a `Vec<f64>`. Panics if `len != param_count()`.

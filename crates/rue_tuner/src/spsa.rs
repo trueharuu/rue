@@ -47,11 +47,7 @@ pub struct IterationLog {
 /// evaluations per iteration. Returns the best weights found.
 ///
 /// The `log` callback is invoked after each iteration with diagnostic data.
-pub fn run_spsa<T, const N: usize, F>(
-    initial: &T,
-    config: &SpsaConfig,
-    mut log: F,
-) -> SpsaResult<T>
+pub fn run_spsa<T, const N: usize, F>(initial: &T, config: &SpsaConfig, mut log: F) -> SpsaResult<T>
 where
     T: Tunable,
     F: FnMut(IterationLog),

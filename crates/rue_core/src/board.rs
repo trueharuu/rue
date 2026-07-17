@@ -1,12 +1,11 @@
 //! Packed multi-band bitboard representation and board update primitives.
 
-use std::{cmp::Ordering, simd::Simd};
+use std::cmp::Ordering;
+use std::simd::Simd;
 
-use crate::{
-    header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask},
-    piece::Piece,
-    placement::Move,
-};
+use crate::header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask};
+use crate::piece::Piece;
+use crate::placement::Move;
 
 /// A row-major banded bitboard. Each u64 represents a 10x6 band of the board with the 4 high-most bits left empty.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

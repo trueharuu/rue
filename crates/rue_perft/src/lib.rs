@@ -10,9 +10,13 @@ pub mod fusion;
 pub mod height;
 mod traversal;
 
-use rue_core::{board::Board, piece::Piece, placement::Move, rotation::Rotation, spin::{Spin, Spins}};
-use rue_nav::movegen::generate_inlined;
 pub use dispatch::perft_rec;
+use rue_core::board::Board;
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::rotation::Rotation;
+use rue_core::spin::{Spin, Spins};
+use rue_nav::movegen::generate_inlined;
 
 /// Perft from an empty board over the given piece queue.
 ///

@@ -1,11 +1,10 @@
 //! Simple weights as a baseline comparison.
-use rue_core::game::{Game, attack::AttackContext};
+use rue_core::game::Game;
+use rue_core::game::attack::AttackContext;
 
-use crate::{
-    features::{self},
-    tunable::Tunable,
-    weights::Weights,
-};
+use crate::features::{self};
+use crate::tunable::Tunable;
+use crate::weights::Weights;
 
 /// Simple weights as a baseline comparison.
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]

@@ -4,15 +4,16 @@ use std::time::Instant;
 
 use clap::Parser;
 use fumen::Fumen;
-use rue_core::{
-    board::Board,
-    game::{Game, garbage::GarbageQueue, ruleset::SEASON_2},
-    piece::Piece,
-    placement::Move,
-    render::render_with,
-    rng::{Rng, RngKind},
-};
-use rue_eval::{simple::Simple, weights::Weights};
+use rue_core::board::Board;
+use rue_core::game::Game;
+use rue_core::game::garbage::GarbageQueue;
+use rue_core::game::ruleset::SEASON_2;
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::render::render_with;
+use rue_core::rng::{Rng, RngKind};
+use rue_eval::simple::Simple;
+use rue_eval::weights::Weights;
 
 #[allow(missing_docs)]
 #[derive(clap::Parser)]
@@ -35,7 +36,11 @@ pub struct Cli {
 /// Entry point.
 pub fn main() {
     let cli = Cli::parse();
-    println!("Loading weights from {} ({})", cli.load, std::path::absolute(&cli.load).unwrap().display());
+    println!(
+        "Loading weights from {} ({})",
+        cli.load,
+        std::path::absolute(&cli.load).unwrap().display()
+    );
     let current = &cli.load;
     let model: Simple = serde_json::from_str(
         &std::fs::read_to_string(current.clone()).expect("failed to read weights"),
@@ -66,9 +71,10 @@ pub fn main() {
     let i_total = Instant::now();
     loop {
         if let Some(n) = cli.n
-            && pieces >= n as u32 {
-                break;
-            }
+            && pieces >= n as u32
+        {
+            break;
+        }
         if pieces.is_multiple_of(14) {
             // game.garbage_queue.recieve(4, u32::MAX);
         }
@@ -168,7 +174,12 @@ pub fn main() {
         }
     }
 
-    println!("placed {} pieces in {:?} (global attack/piece: {:.3})", pieces, i_total.elapsed(), f64::from(total_attack) / f64::from(pieces));
+    println!(
+        "placed {} pieces in {:?} (global attack/piece: {:.3})",
+        pieces,
+        i_total.elapsed(),
+        f64::from(total_attack) / f64::from(pieces)
+    );
 }
 
 /// Appends 14 pieces to the end of the queue.
@@ -184,7 +195,11 @@ use rue_search::{SearchConfig, beam_search};
 
 /// The best placement at any given time.
 #[must_use]
-pub fn best_placement<const N: usize>(game: &Game<N>, model: &impl Weights, cli: &Cli) -> Option<(Move, f64)> {
+pub fn best_placement<const N: usize>(
+    game: &Game<N>,
+    model: &impl Weights,
+    cli: &Cli,
+) -> Option<(Move, f64)> {
     let cfg = SearchConfig {
         beam_width: cli.width,
         depth: cli.depth,

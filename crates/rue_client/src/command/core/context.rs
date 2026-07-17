@@ -1,6 +1,7 @@
 //! Command execution contexts.
 
-use triangle::{Client, classes::room::Room};
+use triangle::Client;
+use triangle::classes::room::Room;
 
 /// The execution context passed to a command handler.
 ///
@@ -22,7 +23,12 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     /// Create a new context from the argument portion of a message.
     #[must_use]
-    pub fn new(args_text: &'a str, event: &'a triangle::types::events::recv::room::Chat, room: &'a Room, client: &'a Client) -> Self {
+    pub fn new(
+        args_text: &'a str,
+        event: &'a triangle::types::events::recv::room::Chat,
+        room: &'a Room,
+        client: &'a Client,
+    ) -> Self {
         Self {
             args_text,
             offset: 0,
@@ -46,7 +52,7 @@ impl<'a> Context<'a> {
     /// Return the next whitespace-delimited word, or `None` if exhausted.
     pub fn next_word(&mut self) -> Option<&str> {
         let remaining = self.remaining();
-        
+
         let trimmed = remaining.trim_start_matches(char::is_whitespace);
         if trimmed.is_empty() {
             return None;

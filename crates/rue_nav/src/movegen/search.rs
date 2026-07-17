@@ -4,14 +4,12 @@ use crate::buffer::Moves;
 use crate::collision::{landable_map, usable_map};
 use crate::movegen::op::{horizontal_tuck, kick_step, vertical_ceiling};
 use crate::unroll;
-use rue_core::{
-    board::Board,
-    data::KickTab,
-    envelope::{EnvelopeTable, env_probe},
-    header::{SPAWN_X, SPAWN_Y, TLINES},
-    piece::Piece,
-    spin::Spins,
-};
+use rue_core::board::Board;
+use rue_core::data::KickTab;
+use rue_core::envelope::{EnvelopeTable, env_probe};
+use rue_core::header::{SPAWN_X, SPAWN_Y, TLINES};
+use rue_core::piece::Piece;
+use rue_core::spin::Spins;
 
 #[must_use]
 /// Generates reachable/landable placements for piece `P` on board `b`.
@@ -54,7 +52,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     } else {
                         Board::<N>::EMPTY
                     };
-                    
+
                     // todo: 3-corner t-spin detection
                     match SPINS {
                         Spins::None => {
@@ -70,7 +68,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                         Spins::AllPlus => {
                             moves.none[r] = landable & !immobile;
                             moves.full[r] = immobile;
-                        },
+                        }
                     }
                 });
                 return (moves, 0);

@@ -4,11 +4,11 @@
 //! attack per piece as a scalar fitness score.
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use rue_core::{
-    board::Board,
-    game::{Game, garbage::GarbageQueue, ruleset::SEASON_2},
-    rng::{Rng, RngKind},
-};
+use rue_core::board::Board;
+use rue_core::game::Game;
+use rue_core::game::garbage::GarbageQueue;
+use rue_core::game::ruleset::SEASON_2;
+use rue_core::rng::{Rng, RngKind};
 use rue_eval::weights::Weights;
 use rue_search::beam_search;
 
@@ -33,7 +33,7 @@ pub fn single_game<const N: usize, W: Weights>(
     seed: i32,
 ) -> f64 {
     let cfg = config.search_config();
-    
+
     let mut game = Game {
         board: Board::<N>::EMPTY,
         hold: None,
@@ -66,7 +66,7 @@ pub fn single_game<const N: usize, W: Weights>(
             fill(&mut game.queue, &mut game.rng, 2);
         }
     }
-    
+
     println!("game {seed}, fitness = {}", total_attack / pieces as f64);
     if pieces == 0 {
         0.0

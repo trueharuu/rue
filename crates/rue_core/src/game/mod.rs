@@ -1,14 +1,18 @@
 //! Singleplayer and multiplayer game logic. Contains rulesets, game state and attack resolution.
 
 pub mod attack;
-pub mod ruleset;
 pub mod garbage;
+pub mod ruleset;
 
+use crate::board::Board;
 use crate::game::attack::{AttackContext, Clear, b2b_chaining_bonus};
 use crate::game::garbage::GarbageQueue;
+use crate::game::ruleset::Ruleset;
 use crate::header::WIDTH;
+use crate::piece::Piece;
+use crate::placement::Move;
 use crate::rng::Rng;
-use crate::{board::Board, game::ruleset::Ruleset, piece::Piece, placement::Move, spin::Spin};
+use crate::spin::Spin;
 
 #[derive(Clone)]
 /// A full singleplayer game state.
@@ -111,7 +115,7 @@ impl<const N: usize> Game<N> {
         if line_clears == 0 {
             // tank garbage if any
             let segments = self.garbage_queue.tank(self.ruleset.garbage_cap);
-            
+
             for segment in segments {
                 let col = self.rng.next() as u32 % WIDTH as u32;
                 self.board.insert_garbage(segment, col);

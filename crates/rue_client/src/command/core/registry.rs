@@ -1,6 +1,6 @@
 //! Global registry struct for runtime command lookup.
 
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use crate::command::core::traits::Command;
 
@@ -11,7 +11,6 @@ pub struct Registry {
     /// A mapping from command names and aliases to their index in `commands`.
     index: HashMap<String, usize>,
 }
-
 
 impl Registry {
     /// Create an empty registry.

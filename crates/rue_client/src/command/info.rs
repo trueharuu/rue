@@ -1,8 +1,7 @@
 //! Info command group.
 
-use rue_macro::command;
 use crate::command::core::context::Context;
-
+use rue_macro::command;
 
 /// Bot health check
 #[command]

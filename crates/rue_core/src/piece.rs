@@ -1,6 +1,7 @@
 //! Tetromino identifiers and per-piece geometric helpers.
 
-use std::{fmt::Display, marker::ConstParamTy};
+use std::fmt::Display;
+use std::marker::ConstParamTy;
 
 /// Tetromino kind encoded as a compact integer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ConstParamTy)]

@@ -111,9 +111,7 @@ fn main() {
     );
 
     // Logger with human-readable column names from Simple.
-    let param_names: Vec<&str> = (0..Simple::param_count())
-        .map(Simple::param_name)
-        .collect();
+    let param_names: Vec<&str> = (0..Simple::param_count()).map(Simple::param_name).collect();
     let mut logger = SpsaLogger::create_with_names(&cli.csv, &param_names);
 
     let result = run_spsa::<Simple, 8, _>(&initial, &spsa, |log| {

@@ -52,7 +52,9 @@ impl History {
         for i in 0..self.len {
             let piece_idx = self.buf[i] as usize;
             // Only overwrite if this is the first (most recent) occurrence
-            if (scores[piece_idx] - 1.0).abs() < f32::EPSILON || scores[piece_idx] > i as f32 / CAPACITY as f32 {
+            if (scores[piece_idx] - 1.0).abs() < f32::EPSILON
+                || scores[piece_idx] > i as f32 / CAPACITY as f32
+            {
                 scores[piece_idx] = i as f32 / CAPACITY as f32;
             }
         }

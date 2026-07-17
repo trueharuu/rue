@@ -1,8 +1,8 @@
 //! Argument parsing for commands.
-//! 
+//!
 //! Houses a [`ParseArgument`] trait which can be implemented for any parseable type,
 //! allowing commands to automatically parse their arguments into typed values given they implement it.
-//! 
+//!
 //! Additionally supplies implementations of [`ParseArgument`] for common types like [`String`], [`i64`], [`u64`], [`f64`], and [`bool`].
 use super::context::Context;
 

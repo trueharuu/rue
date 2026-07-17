@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
-use rue_core::{game::Game, placement::Move};
+use rue_core::game::Game;
+use rue_core::placement::Move;
 use rue_eval::weights::Weights;
 use rustc_hash::FxHashMap;
 
@@ -139,7 +140,11 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
         return None;
     }
 
-    apply_futility_pruning(&mut beam, params.config.futility_delta, params.forced_root_move);
+    apply_futility_pruning(
+        &mut beam,
+        params.config.futility_delta,
+        params.forced_root_move,
+    );
     beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
     truncate_search_beam(&mut beam, params.beam_width, params.forced_root_move);
 
@@ -245,9 +250,7 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
     }
 
     let best = beam.first()?;
-    let result = SearchResult {
-        best: best.clone(),
-    };
+    let result = SearchResult { best: best.clone() };
 
     let mut root_scores: Vec<(Move, f64)> = Vec::new();
     for node in &beam {
@@ -284,11 +287,7 @@ fn compute_position_complexity(root_scores: &[(Move, f64)]) -> f64 {
     }
     let scores: Vec<f64> = root_scores.iter().take(10).map(|(_, s)| *s).collect();
     let mean = scores.iter().sum::<f64>() / count as f64;
-    scores
-        .iter()
-        .map(|s| (s - mean).powi(2))
-        .sum::<f64>()
-        / count as f64
+    scores.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / count as f64
 }
 
 /// Truncate beam to `max_size`, protecting a forced root move from truncation.
@@ -346,9 +345,7 @@ fn apply_futility_pruning<const N: usize>(
 
     // Re-insert forced move node unconditionally
     if let Some(forced_node) = forced_node {
-        let already_present = nodes
-            .iter()
-            .any(|n| n.root_move == forced_node.root_move);
+        let already_present = nodes.iter().any(|n| n.root_move == forced_node.root_move);
         if !already_present {
             nodes.push(forced_node);
         }
@@ -359,11 +356,11 @@ fn apply_futility_pruning<const N: usize>(
 mod tests {
     use rue_core::board::Board;
     use rue_core::game::garbage::GarbageQueue;
-use rue_core::game::ruleset::SEASON_2;
+    use rue_core::game::ruleset::SEASON_2;
     use rue_core::piece::Piece;
 
     use rue_core::rng::Rng;
-use rue_eval::simple::Simple;
+    use rue_eval::simple::Simple;
 
     use super::*;
 

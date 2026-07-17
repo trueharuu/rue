@@ -2,7 +2,10 @@
 
 use std::fmt::Debug;
 
-use crate::{header::rot_cell, piece::Piece, rotation::Rotation, spin::Spin};
+use crate::header::rot_cell;
+use crate::piece::Piece;
+use crate::rotation::Rotation;
+use crate::spin::Spin;
 
 /// A move is a 32-bit integer with the following layout:
 /// Piece (3 bits) | Rotation (2 bits) | X (4 bits) | Y (8 bits) | Spin (2 bits) | Unused (13 bits)

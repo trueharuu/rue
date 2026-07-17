@@ -1,6 +1,9 @@
 //! ANSI terminal rendering helpers for boards and placements.
 
-use crate::{board::Board, header::WIDTH, piece::Piece, placement::Move};
+use crate::board::Board;
+use crate::header::WIDTH;
+use crate::piece::Piece;
+use crate::placement::Move;
 
 #[must_use]
 /// Returns the ANSI glyph used for a filled board cell.

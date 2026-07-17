@@ -1,13 +1,13 @@
 #![allow(missing_docs, clippy::missing_docs_in_private_items)]
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rue_core::board::Board;
+use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
 use rue_core::game::ruleset::SEASON_2;
-use rue_core::game::Game;
 use rue_core::piece::Piece;
 use rue_core::rng::Rng;
 use rue_eval::simple::Simple;
-use rue_search::{beam_search, SearchConfig};
+use rue_search::{SearchConfig, beam_search};
 
 const N: usize = 7;
 
@@ -46,7 +46,13 @@ fn empty_game(queue: Vec<Piece>) -> Game<N> {
 
 fn bench_early_game(c: &mut Criterion) {
     let game = empty_game(vec![
-        Piece::T, Piece::I, Piece::O, Piece::L, Piece::J, Piece::S, Piece::Z,
+        Piece::T,
+        Piece::I,
+        Piece::O,
+        Piece::L,
+        Piece::J,
+        Piece::S,
+        Piece::Z,
     ]);
     let config = SearchConfig {
         beam_width: 800,
@@ -62,7 +68,13 @@ fn bench_early_game(c: &mut Criterion) {
 
 fn bench_mid_game(c: &mut Criterion) {
     let mut game = empty_game(vec![
-        Piece::I, Piece::T, Piece::O, Piece::L, Piece::S, Piece::Z, Piece::J,
+        Piece::I,
+        Piece::T,
+        Piece::O,
+        Piece::L,
+        Piece::S,
+        Piece::Z,
+        Piece::J,
     ]);
     // Partially fill the board
     for y in 0..5 {
@@ -86,7 +98,13 @@ fn bench_mid_game(c: &mut Criterion) {
 
 fn bench_shallow(c: &mut Criterion) {
     let game = empty_game(vec![
-        Piece::T, Piece::I, Piece::O, Piece::L, Piece::J, Piece::S, Piece::Z,
+        Piece::T,
+        Piece::I,
+        Piece::O,
+        Piece::L,
+        Piece::J,
+        Piece::S,
+        Piece::Z,
     ]);
     let config = SearchConfig {
         beam_width: 800,
@@ -100,10 +118,5 @@ fn bench_shallow(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    benches,
-    bench_early_game,
-    bench_mid_game,
-    bench_shallow
-);
+criterion_group!(benches, bench_early_game, bench_mid_game, bench_shallow);
 criterion_main!(benches);

@@ -1,4 +1,5 @@
-use rue_core::{game::Game, placement::Move};
+use rue_core::game::Game;
+use rue_core::placement::Move;
 use rustc_hash::FxHashMap;
 
 /// Configuration for beam search.

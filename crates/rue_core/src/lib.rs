@@ -7,12 +7,12 @@
 pub mod board;
 pub mod data;
 pub mod envelope;
+pub mod game;
 pub mod header;
+pub mod history;
 pub mod piece;
 pub mod placement;
 pub mod render;
+pub mod rng;
 pub mod rotation;
 pub mod spin;
-pub mod game;
-pub mod rng;
-pub mod history;

@@ -1,6 +1,8 @@
 //! Rotation envelope helpers for conservative occupancy expansion.
 
-use crate::{board::Board, data::kick_row_const, piece::Piece};
+use crate::board::Board;
+use crate::data::kick_row_const;
+use crate::piece::Piece;
 
 /// Computes the min/max kick reach `(xmin, xmax, ymin, ymax)` across cw/ccw kicks.
 #[must_use]

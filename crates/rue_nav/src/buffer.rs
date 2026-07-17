@@ -1,8 +1,11 @@
 //! Move result buffers grouped by rotation and spin outcome.
 
-use rue_core::{
-    board::Board, header::WIDTH, piece::Piece, placement::Move, rotation::Rotation, spin::Spin,
-};
+use rue_core::board::Board;
+use rue_core::header::WIDTH;
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::rotation::Rotation;
+use rue_core::spin::Spin;
 
 /// Result of move generation: landable positions per rotation, per spin type.
 ///
@@ -32,7 +35,7 @@ pub struct Moves<const N: usize> {
     pub via_rotation: [Board<N>; 4],
     /// Landed positions discovered by the 5th rotation kick.
     pub via_5th_kick: [Board<N>; 4],
-} 
+}
 
 impl<const N: usize> Moves<N> {
     /// Empty move buffer with no landable cells in any bucket.

@@ -5,7 +5,8 @@ use std::sync::Arc;
 
 use triangle::{Client, ClientOptions};
 
-use crate::command::core::{context::Context, registry::Registry};
+use crate::command::core::context::Context;
+use crate::command::core::registry::Registry;
 
 #[tokio::main]
 /// Entrypoint.
@@ -46,7 +47,7 @@ pub async fn main() -> anyhow::Result<()> {
     }
 
     tokio::signal::ctrl_c().await?;
-    
+
     // leave room
     if let Some(room) = client.room() {
         room.leave().await;

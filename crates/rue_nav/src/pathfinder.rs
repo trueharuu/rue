@@ -4,15 +4,13 @@ use std::collections::VecDeque;
 
 use smallvec::SmallVec;
 
-use rue_core::{
-    board::Board,
-    data,
-    game::ruleset::Ruleset,
-    header::{SPAWN_X, SPAWN_Y, WIDTH},
-    piece::Piece,
-    placement::Move,
-    spin::Spins,
-};
+use rue_core::board::Board;
+use rue_core::data;
+use rue_core::game::ruleset::Ruleset;
+use rue_core::header::{SPAWN_X, SPAWN_Y, WIDTH};
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::spin::Spins;
 
 use crate::collision;
 

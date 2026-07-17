@@ -166,4 +166,3 @@ pub const fn top_extent(p: Piece, rc: usize) -> i32 {
     }
     top + 1
 }
-

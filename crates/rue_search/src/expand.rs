@@ -1,12 +1,11 @@
-use rue_core::{
-    game::Game,
-    placement::Move,
-    piece::Piece,
-    rotation::Rotation,
-    spin::Spin,
-};
+use rue_core::game::Game;
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::rotation::Rotation;
+use rue_core::spin::Spin;
 use rue_eval::weights::Weights;
-use rue_nav::{buffer::Moves, movegen};
+use rue_nav::buffer::Moves;
+use rue_nav::movegen;
 use rustc_hash::FxHashMap;
 
 use rayon::prelude::*;
@@ -22,8 +21,13 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
         return Vec::new();
     }
 
-    let moves_a =
-        movegen::generate(&game.board, game.ruleset, game.queue[0], game.board.max_y(), 0);
+    let moves_a = movegen::generate(
+        &game.board,
+        game.ruleset,
+        game.queue[0],
+        game.board.max_y(),
+        0,
+    );
 
     let moves_b = if game.hold.is_some() || game.queue.len() >= 2 {
         let second = game.hold.unwrap_or_else(|| game.queue[1]);
@@ -51,13 +55,8 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
 
             let path = vec![mv];
             let mut local_tt = None;
-            let board_eval = evaluate_with_tt(
-                &child,
-                weights,
-                remaining_depth,
-                &mut local_tt,
-                Some(&path),
-            );
+            let board_eval =
+                evaluate_with_tt(&child, weights, remaining_depth, &mut local_tt, Some(&path));
             let attack_val = f64::from(attack_ctx.attack_sent);
             let chain_val = shape_chain_value(attack_ctx.combo_after);
             let score = assemble_composite(board_eval, attack_val, chain_val, config);
@@ -129,8 +128,13 @@ pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
         let mut path = parent.path.clone();
         path.push(mv);
 
-        let board_eval =
-            evaluate_with_tt(&child, ctx.weights, ctx.remaining_depth, ctx.tt, Some(&path));
+        let board_eval = evaluate_with_tt(
+            &child,
+            ctx.weights,
+            ctx.remaining_depth,
+            ctx.tt,
+            Some(&path),
+        );
         let attack_val = f64::from(attack_ctx.attack_sent);
         let chain_val = shape_chain_value(attack_ctx.combo_after);
 

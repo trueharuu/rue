@@ -1,7 +1,7 @@
 //! Traits and metadata for commands.
 
-use async_trait::async_trait;
 use super::context::Context;
+use async_trait::async_trait;
 
 /// Static metadata describing a command.
 pub struct CommandMetadata {

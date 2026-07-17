@@ -2,12 +2,13 @@
 #![allow(missing_docs, clippy::missing_docs_in_private_items)]
 
 use candle_core::{DType, Device, Tensor};
-use candle_nn::{BatchNorm, BatchNormConfig, Conv2d, Conv2dConfig, Linear, Module, ModuleT, VarBuilder};
-use rue_core::{
-    game::{Game, attack::AttackContext},
-    history::History,
-    placement::Move,
+use candle_nn::{
+    BatchNorm, BatchNormConfig, Conv2d, Conv2dConfig, Linear, Module, ModuleT, VarBuilder,
 };
+use rue_core::game::Game;
+use rue_core::game::attack::AttackContext;
+use rue_core::history::History;
+use rue_core::placement::Move;
 
 use crate::weights::Weights;
 
@@ -55,8 +56,7 @@ impl Config {
         // Conv1: 1 * ch[0] * 3 * 3 + ch[0] (bias)
         let conv1 = self.conv_channels[0] * 3 * 3 + self.conv_channels[0];
         // Conv2: ch[0] * ch[1] * 3 * 3 + ch[1]
-        let conv2 =
-            self.conv_channels[0] * self.conv_channels[1] * 3 * 3 + self.conv_channels[1];
+        let conv2 = self.conv_channels[0] * self.conv_channels[1] * 3 * 3 + self.conv_channels[1];
         // BN1: 2 * ch[0] (weight + bias)
         let bn1 = 2 * self.conv_channels[0];
         // BN2: 2 * ch[1]
@@ -128,8 +128,12 @@ fn encode_board<const N: usize>(game: &Game<N>, config: &Config) -> Tensor {
             }
         }
     }
-    Tensor::from_slice(&data, (1, 1, config.board_rows, config.board_cols), &Device::Cpu)
-        .unwrap()
+    Tensor::from_slice(
+        &data,
+        (1, 1, config.board_rows, config.board_cols),
+        &Device::Cpu,
+    )
+    .unwrap()
 }
 
 /// Build the auxiliary feature vector from game state and optional piece history.
@@ -216,10 +220,7 @@ impl Deep {
 
         let model = build_model(&config, &vb).expect("model build failed");
 
-        Self {
-            model,
-            config,
-        }
+        Self { model, config }
     }
 
     /// Load model weights from a safetensors file.
@@ -233,10 +234,7 @@ impl Deep {
 
         let model = build_model(&config, &vb)?;
 
-        Ok(Self {
-            model,
-            config,
-        })
+        Ok(Self { model, config })
     }
 
     /// Save model weights to a safetensors file.

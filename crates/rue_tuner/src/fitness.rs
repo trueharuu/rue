@@ -1,7 +1,7 @@
-//! Fitness evaluation for SPSA tuning.
+//! Fitness evaluation for tuning.
 //!
-//! Runs self-play games using a given set of weights and returns the mean
-//! attack per piece as a scalar fitness score.
+//! Runs self-play games using a given set of weights and returns mean
+//! back-to-back per bag as a scalar fitness score.
 
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use rue_core::board::Board;
@@ -23,7 +23,7 @@ fn fill(queue: &mut Vec<rue_core::piece::Piece>, rng: &mut Rng, n: usize) {
     }
 }
 
-/// Run a single self-play game and return the mean attack per piece.
+/// Run a single self-play game and return the mean back-to-back per bag.
 ///
 /// The game plays `config.pieces` placements using beam search with the
 /// given `weights`. Returns `0.0` if the board tops out immediately.
@@ -47,19 +47,19 @@ pub fn single_game<const N: usize, W: Weights>(
 
     fill(&mut game.queue, &mut game.rng, 3);
 
-    let mut total_attack = 0.0_f64;
+    let mut total_b2b = 0.0_f64;
     let mut pieces = 0_usize;
 
     while pieces < config.pieces {
         let best = beam_search(&game, &cfg, weights);
         let Some(result) = best else {
-            // immediately increment pieces to the max with 0 additional attack
+            // immediately increment pieces to the max with 0 additional b2b
             pieces = config.pieces;
             break;
         };
 
         let out = game.tick(result.best.root_move);
-        total_attack += f64::from(out.attack_sent);
+        total_b2b += f64::from(out.is_b2b());
         pieces += 1;
 
         if game.queue.len() <= 14 {
@@ -67,17 +67,17 @@ pub fn single_game<const N: usize, W: Weights>(
         }
     }
 
-    println!("game {seed}, fitness = {}", total_attack / pieces as f64);
+    println!("game {seed}, fitness = {}", total_b2b / pieces as f64);
     if pieces == 0 {
         0.0
     } else {
-        total_attack / pieces as f64
+        total_b2b / pieces as f64
     }
 }
 
 /// Average [`single_game`] over `config.games` independent seeds.
 ///
-/// Returns the mean attack per piece across all games.
+/// Returns the mean back-to-back per bag across all games.
 pub fn multi_game<const N: usize, W: Weights>(weights: &W, config: &FitnessConfig) -> f64 {
     let total: f64 = (0..config.games)
         .par_bridge()

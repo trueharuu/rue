@@ -1,3 +1,4 @@
+//! Configuration for Rue's fitness evaluation.
 use rue_search::SearchConfig;
 
 /// Configuration for fitness evaluation.
@@ -33,40 +34,6 @@ impl FitnessConfig {
             futility_delta: 0.0,
             time_budget_ms: None,
             ..SearchConfig::default()
-        }
-    }
-}
-
-/// Hyperparameters for the SPSA algorithm.
-#[allow(non_snake_case)]
-pub struct SpsaConfig {
-    /// Step-size numerator. Controls how large updates are.
-    pub a0: f64,
-    /// Perturbation-size numerator. Controls estimation noise.
-    pub c0: f64,
-    /// Stability constant (A). Should be ~10% of expected max iterations.
-    /// Larger values make early gain sequences decay more slowly.
-    pub A: f64,
-    /// Exponent for `a_k` gain sequence. Standard SPSA: 0.602.
-    pub alpha: f64,
-    /// Exponent for `c_k` gain sequence. Standard SPSA: 0.101.
-    pub gamma: f64,
-    /// Maximum number of SPSA iterations.
-    pub max_iter: usize,
-    /// Fitness evaluation parameters (games, pieces, beam config).
-    pub fitness: FitnessConfig,
-}
-
-impl Default for SpsaConfig {
-    fn default() -> Self {
-        Self {
-            a0: 0.05,
-            c0: 0.1,
-            A: 10.0,
-            alpha: 0.602,
-            gamma: 0.101,
-            max_iter: 200,
-            fitness: FitnessConfig::default(),
         }
     }
 }

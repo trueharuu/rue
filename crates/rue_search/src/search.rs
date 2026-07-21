@@ -382,6 +382,7 @@ mod tests {
     fn zero_weights() -> Simple {
         Simple {
             b2b: 0.0,
+            pc: 0.0,
             height: 0.0,
             height_half: 0.0,
             height_three_quarters: 0.0,

@@ -18,7 +18,7 @@ use rue_eval::weights::Weights;
 #[allow(missing_docs)]
 #[derive(clap::Parser)]
 pub struct Cli {
-    #[arg(long, default_value = "weights/simple-handtuned.json")]
+    #[arg(long, default_value = "weights/simple.json")]
     pub load: String,
 
     #[arg(long)]
@@ -152,14 +152,9 @@ pub fn main() {
             f64::from(chain_b2b) / (f64::from(chain_pieces) / 7.0)
         );
         page.comment = Some(format!(
-            "{score:.3}\nsent {}/{}\nb2b={:?}\nattack/piece={:.3}",
-            out.attack_sent,
-            out.clear_type.count(),
-            game.b2b_count,
-            f64::from(total_attack) / f64::from(pieces),
+            "{score:.3}"
         ));
         // clear run_output.txt
-        std::fs::write("run.txt", "").expect("failed to clear run.txt");
         std::fs::write("run.txt", fu.encode()).expect("failed to write fumen to run.txt");
         // break;
         if game.queue.len() <= 14 {

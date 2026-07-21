@@ -2,20 +2,50 @@
 
 use std::time::Instant;
 
+use clap::Parser;
 use fumen::Fumen;
-use rue_core::{
-    board::Board, game::{Game, garbage::GarbageQueue, ruleset::SEASON_2}, piece::Piece, placement::Move, render::render_with, rng::{Rng, RngKind}, spin::Spins,
-};
-use rue_eval::{simple::Simple, weights::Weights};
+use rue_core::board::Board;
+use rue_core::game::Game;
+use rue_core::game::garbage::GarbageQueue;
+use rue_core::game::ruleset::SEASON_2;
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::render::render_with;
+use rue_core::rng::{Rng, RngKind};
+use rue_eval::simple::Simple;
+use rue_eval::weights::Weights;
 
-/// Pieces per second.
-pub const PPS: f64 = 300.0;
+#[allow(missing_docs)]
+#[derive(clap::Parser)]
+pub struct Cli {
+    #[arg(long, default_value = "weights/simple-handtuned.json")]
+    pub load: String,
+
+    #[arg(long)]
+    pub pps: Option<f64>,
+
+    #[arg(long, default_value_t = 500)]
+    pub width: usize,
+
+    #[arg(long, default_value_t = 7)]
+    pub depth: usize,
+
+    #[arg(short)]
+    pub n: Option<usize>,
+}
 /// Entry point.
 pub fn main() {
-    let current = "simple-6a51a732.json";
+    let cli = Cli::parse();
+    println!(
+        "Loading weights from {} ({})",
+        cli.load,
+        std::path::absolute(&cli.load).unwrap().display()
+    );
+    let current = &cli.load;
     let model: Simple = serde_json::from_str(
-        &std::fs::read_to_string(format!("weights/{current}")).expect("failed to read weights"),
-    ).expect("failed to parse weights");
+        &std::fs::read_to_string(current.clone()).expect("failed to read weights"),
+    )
+    .expect("failed to parse weights");
 
     println!("Loaded model: {current}");
 
@@ -29,7 +59,7 @@ pub fn main() {
         ruleset: SEASON_2,
         rng: Rng::new(),
     };
-    game.ruleset.spins = Spins::AllPlus;
+    // game.ruleset.spins = Spins::T;
 
     let mut fu = Fumen::default();
 
@@ -40,11 +70,16 @@ pub fn main() {
     let mut chain_b2b = 0u32;
     let i_total = Instant::now();
     loop {
+        if let Some(n) = cli.n
+            && pieces >= n as u32
+        {
+            break;
+        }
         if pieces.is_multiple_of(14) {
-            game.garbage_queue.recieve(4, u32::MAX);
+            // game.garbage_queue.recieve(4, u32::MAX);
         }
         let instant = Instant::now();
-        let best = best_placement(&game, &model);
+        let best = best_placement(&game, &model, &cli);
         let elapsed = instant.elapsed();
         if best.is_none() {
             println!("dead");
@@ -53,7 +88,10 @@ pub fn main() {
 
         let (best, score) = best.unwrap();
         println!("{}", render_with(game.board, &best));
-        println!("{:?}", pathfinder::get_input(&game.board, best, &game.ruleset, true, false));
+        println!(
+            "{:?}",
+            pathfinder::get_input(&game.board, best, &game.ruleset, true, false)
+        );
         let page = fu.add_page();
         for fy in 0..23 {
             for fx in 0..10 {
@@ -106,7 +144,7 @@ pub fn main() {
         );
         println!("choosable active pieces: {active:?}");
         println!(
-            "b2b={:?} combo={:?} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3}",
+            "n={pieces} b2b={:?} combo={:?} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3}",
             game.b2b_count,
             game.combo_count,
             f64::from(pieces) / i_total.elapsed().as_secs_f64(),
@@ -128,11 +166,20 @@ pub fn main() {
             fill(&mut game.queue, &mut game.rng, 2);
         }
 
-        let sleep = (1.0 / PPS) - elapsed.as_secs_f64();
-        if sleep > 0.0 {
-            std::thread::sleep(std::time::Duration::from_secs_f64(sleep));
+        if let Some(pps) = cli.pps {
+            let sleep = (1.0 / pps) - elapsed.as_secs_f64();
+            if sleep > 0.0 {
+                std::thread::sleep(std::time::Duration::from_secs_f64(sleep));
+            }
         }
     }
+
+    println!(
+        "placed {} pieces in {:?} (global attack/piece: {:.3})",
+        pieces,
+        i_total.elapsed(),
+        f64::from(total_attack) / f64::from(pieces)
+    );
 }
 
 /// Appends 14 pieces to the end of the queue.
@@ -148,11 +195,16 @@ use rue_search::{SearchConfig, beam_search};
 
 /// The best placement at any given time.
 #[must_use]
-pub fn best_placement<const N: usize>(game: &Game<N>, model: &impl Weights) -> Option<(Move, f64)> {
+pub fn best_placement<const N: usize>(
+    game: &Game<N>,
+    model: &impl Weights,
+    cli: &Cli,
+) -> Option<(Move, f64)> {
     let cfg = SearchConfig {
-        beam_width: 1000,
-        depth: 7,
+        beam_width: cli.width,
+        depth: cli.depth,
         futility_delta: 0.0,
+        time_budget_ms: None,
         ..SearchConfig::default()
     };
 

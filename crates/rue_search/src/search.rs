@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
-use rue_core::{game::Game, placement::Move};
+use rue_core::game::Game;
+use rue_core::placement::Move;
 use rue_eval::weights::Weights;
 use rustc_hash::FxHashMap;
 
@@ -8,6 +9,8 @@ use crate::config::{
     SearchConfig, SearchExpansionContext, SearchIterationParams, SearchNode, SearchResult,
     SearchResultFull,
 };
+use rayon::prelude::*;
+
 use crate::expand::{expand_node, expand_root};
 
 /// Run beam search from a game state.
@@ -73,8 +76,21 @@ pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
     let mut best_full: Option<SearchResultFull<N>> = None;
     let start = Instant::now();
     let time_budget = config.time_budget_ms.map(Duration::from_millis);
+    let mut last_iter_duration = Duration::ZERO;
 
     loop {
+        if let Some(budget) = time_budget {
+            let elapsed = start.elapsed();
+            // The next iteration doubles the beam width, so it will cost
+            // roughly 2x the previous one.  Refuse to start if that would
+            // push the total past the budget.
+            if elapsed + last_iter_duration * 2 >= budget {
+                break;
+            }
+        }
+
+        let iter_start = Instant::now();
+
         let mut tt = Some(FxHashMap::default());
         let params = SearchIterationParams {
             game,
@@ -96,13 +112,9 @@ pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
             }
         }
 
-        if width >= max_width {
-            break;
-        }
+        last_iter_duration = iter_start.elapsed();
 
-        if let Some(budget) = time_budget
-            && start.elapsed() >= budget
-        {
+        if width >= max_width {
             break;
         }
 
@@ -128,7 +140,11 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
         return None;
     }
 
-    apply_futility_pruning(&mut beam, params.config.futility_delta, params.forced_root_move);
+    apply_futility_pruning(
+        &mut beam,
+        params.config.futility_delta,
+        params.forced_root_move,
+    );
     beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
     truncate_search_beam(&mut beam, params.beam_width, params.forced_root_move);
 
@@ -136,12 +152,25 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
         let child_depth = depth_idx + 2;
         ctx.remaining_depth = params.max_depth.saturating_sub(child_depth);
 
-        let mut next_beam: Vec<SearchNode<N>> =
-            Vec::with_capacity(params.beam_width.saturating_mul(2));
+        let config = ctx.config;
+        let weights = ctx.weights;
+        let remaining_depth = ctx.remaining_depth;
 
-        for node in &beam {
-            expand_node(node, &mut ctx, &mut next_beam);
-        }
+        let mut next_beam: Vec<SearchNode<N>> = beam
+            .par_iter()
+            .flat_map_iter(|node| {
+                let mut local_tt = None;
+                let mut local_ctx = SearchExpansionContext {
+                    config,
+                    weights,
+                    remaining_depth,
+                    tt: &mut local_tt,
+                };
+                let mut out = Vec::new();
+                expand_node(node, &mut local_ctx, &mut out);
+                out
+            })
+            .collect();
 
         if next_beam.is_empty() {
             break;
@@ -171,17 +200,30 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
             q_beam.sort_unstable_by(|a, b| b.score.total_cmp(&a.score));
             q_beam.truncate(q_beam_width);
 
+            let config = ctx.config;
+            let weights = ctx.weights;
+
             for ext in 0..q_max {
                 let child_depth = main_depth + ext + 2;
-                ctx.remaining_depth = params
+                let remaining_depth = params
                     .max_depth
                     .saturating_sub(child_depth.min(params.max_depth));
 
-                let mut next_q: Vec<SearchNode<N>> = Vec::with_capacity(q_beam_width * 2);
-
-                for node in &q_beam {
-                    expand_node(node, &mut ctx, &mut next_q);
-                }
+                let mut next_q: Vec<SearchNode<N>> = q_beam
+                    .par_iter()
+                    .flat_map_iter(|node| {
+                        let mut local_tt = None;
+                        let mut local_ctx = SearchExpansionContext {
+                            config,
+                            weights,
+                            remaining_depth,
+                            tt: &mut local_tt,
+                        };
+                        let mut out = Vec::new();
+                        expand_node(node, &mut local_ctx, &mut out);
+                        out
+                    })
+                    .collect();
 
                 if next_q.is_empty() {
                     break;
@@ -208,9 +250,7 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
     }
 
     let best = beam.first()?;
-    let result = SearchResult {
-        best: best.clone(),
-    };
+    let result = SearchResult { best: best.clone() };
 
     let mut root_scores: Vec<(Move, f64)> = Vec::new();
     for node in &beam {
@@ -247,11 +287,7 @@ fn compute_position_complexity(root_scores: &[(Move, f64)]) -> f64 {
     }
     let scores: Vec<f64> = root_scores.iter().take(10).map(|(_, s)| *s).collect();
     let mean = scores.iter().sum::<f64>() / count as f64;
-    scores
-        .iter()
-        .map(|s| (s - mean).powi(2))
-        .sum::<f64>()
-        / count as f64
+    scores.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / count as f64
 }
 
 /// Truncate beam to `max_size`, protecting a forced root move from truncation.
@@ -309,9 +345,7 @@ fn apply_futility_pruning<const N: usize>(
 
     // Re-insert forced move node unconditionally
     if let Some(forced_node) = forced_node {
-        let already_present = nodes
-            .iter()
-            .any(|n| n.root_move == forced_node.root_move);
+        let already_present = nodes.iter().any(|n| n.root_move == forced_node.root_move);
         if !already_present {
             nodes.push(forced_node);
         }
@@ -322,11 +356,11 @@ fn apply_futility_pruning<const N: usize>(
 mod tests {
     use rue_core::board::Board;
     use rue_core::game::garbage::GarbageQueue;
-use rue_core::game::ruleset::SEASON_2;
+    use rue_core::game::ruleset::SEASON_2;
     use rue_core::piece::Piece;
 
     use rue_core::rng::Rng;
-use rue_eval::simple::Simple;
+    use rue_eval::simple::Simple;
 
     use super::*;
 

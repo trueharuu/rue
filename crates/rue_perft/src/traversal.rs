@@ -3,7 +3,9 @@
 //! Handles both leaf evaluation ([`count_locks`]) and inner node expansion,
 //! with dynamic band-width casting to minimize memory per recursion level.
 
-use rue_core::{board::Board, piece::Piece, spin::Spins};
+use rue_core::board::Board;
+use rue_core::piece::Piece;
+use rue_core::spin::Spins;
 use rue_nav::movegen::{count_locks, generate_inlined};
 
 use crate::fusion::last_dispatch;

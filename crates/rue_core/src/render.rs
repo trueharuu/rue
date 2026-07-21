@@ -1,6 +1,9 @@
 //! ANSI terminal rendering helpers for boards and placements.
 
-use crate::{board::Board, header::WIDTH, piece::Piece, placement::Move};
+use crate::board::Board;
+use crate::header::WIDTH;
+use crate::piece::Piece;
+use crate::placement::Move;
 
 #[must_use]
 /// Returns the ANSI glyph used for a filled board cell.
@@ -51,7 +54,7 @@ pub fn render<const N: usize>(board: Board<N>) -> String {
     }
     s.push_str(TOP_RIGHT);
     s.push('\n');
-    for y in (0..board.max_y().max(8)).rev() {
+    for y in (0..board.max_y() + 4).rev() {
         s.push_str(VERT);
         for x in 0..WIDTH {
             if board.get(x, y) {
@@ -82,7 +85,7 @@ pub fn render_with<const N: usize>(board: Board<N>, placement: &Move) -> String 
     }
     s.push_str(TOP_RIGHT);
     s.push('\n');
-    for y in (0..board.max_y().max(8)).rev() {
+    for y in (0..board.max_y() + 4).rev() {
         s.push_str(VERT);
         for x in 0..WIDTH {
             if board.get(x, y) {
@@ -107,5 +110,41 @@ pub fn render_with<const N: usize>(board: Board<N>, placement: &Move) -> String 
     s.push_str(BOTTOM_RIGHT);
     s.push('\n');
     let _ = write!(s, "{placement:?}");
+    s
+}
+
+/// Renders two boards overlayed on top of each other.
+#[must_use]
+pub fn merge<const N: usize>(board_a: Board<N>, board_b: Board<N>) -> String {
+    let mut s = String::new();
+    s.push_str(TOP_LEFT);
+    for _ in 0..WIDTH {
+        s.push_str(HORIZ);
+    }
+    s.push_str(TOP_RIGHT);
+    s.push('\n');
+    for y in (0..board_a.max_y().max(board_b.max_y()) + 4).rev() {
+        s.push_str(VERT);
+        for x in 0..WIDTH {
+            let a = board_a.get(x, y);
+            let b = board_b.get(x, y);
+            if a && b {
+                s.push_str(colored_cell(Piece::T));
+            } else if a {
+                s.push_str(colored_cell(Piece::Z));
+            } else if b {
+                s.push_str(colored_cell(Piece::I));
+            } else {
+                s.push_str(empty_cell());
+            }
+        }
+        s.push_str(VERT);
+        s.push('\n');
+    }
+    s.push_str(BOTTOM_LEFT);
+    for _ in 0..WIDTH {
+        s.push_str(HORIZ);
+    }
+    s.push_str(BOTTOM_RIGHT);
     s
 }

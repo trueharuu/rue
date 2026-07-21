@@ -683,7 +683,7 @@ impl Bot {
     fn keypress_duration(&self, m: &BotMove, engine: &Engine) -> f64 {
         if matches!(
             m,
-            BotMove::Path(pathfinder::Input::SoftDrop | pathfinder::Input::SonicDrop)
+            BotMove::Path(pathfinder::Input::SoftDrop)
         ) {
             0.1
         } else if matches!(
@@ -746,7 +746,7 @@ impl Bot {
                     .filter(|m| {
                         matches!(
                             m,
-                            BotMove::Path(pathfinder::Input::SoftDrop | pathfinder::Input::SonicDrop)
+                            BotMove::Path(pathfinder::Input::SoftDrop)
                         )
                     })
                     .count();
@@ -810,7 +810,7 @@ impl Bot {
 
                     if matches!(
                         m,
-                        BotMove::Path(pathfinder::Input::SoftDrop | pathfinder::Input::SonicDrop)
+                        BotMove::Path(pathfinder::Input::SoftDrop)
                     ) && frame.as_f64() != 0.0
                     {
                         frame = frame.max(FrameCounter((prev_frame + duration).ceil()));

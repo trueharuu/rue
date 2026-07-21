@@ -7,5 +7,5 @@ pub mod config;
 pub mod expand;
 pub mod search;
 
-pub use config::{SearchConfig, SearchResult, SearchResultFull, SearchNode};
+pub use config::{SearchConfig, SearchNode, SearchResult, SearchResultFull};
 pub use search::{beam_search, beam_search_forced, beam_search_with_scores};

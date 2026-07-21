@@ -1,6 +1,9 @@
 //! Collision-derived occupancy maps used by move generation.
 
-use rue_core::{board::Board, header::PCELLS, piece::Piece, rotation::Rotation};
+use rue_core::board::Board;
+use rue_core::header::PCELLS;
+use rue_core::piece::Piece;
+use rue_core::rotation::Rotation;
 
 #[inline]
 #[must_use]

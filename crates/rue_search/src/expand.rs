@@ -1,13 +1,14 @@
-use rue_core::{
-    game::Game,
-    placement::Move,
-    piece::Piece,
-    rotation::Rotation,
-    spin::Spin,
-};
+use rue_core::game::Game;
+use rue_core::piece::Piece;
+use rue_core::placement::Move;
+use rue_core::rotation::Rotation;
+use rue_core::spin::Spin;
 use rue_eval::weights::Weights;
-use rue_nav::{buffer::Moves, movegen};
+use rue_nav::buffer::Moves;
+use rue_nav::movegen;
 use rustc_hash::FxHashMap;
+
+use rayon::prelude::*;
 
 use crate::config::{SearchConfig, SearchExpansionContext, SearchNode};
 
@@ -20,11 +21,16 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
         return Vec::new();
     }
 
-    let moves_a =
-        movegen::generate(&game.board, game.ruleset, game.queue[0], game.board.max_y(), 0);
+    let moves_a = movegen::generate(
+        &game.board,
+        game.ruleset,
+        game.queue[0],
+        game.board.max_y(),
+        0,
+    );
 
     let moves_b = if game.hold.is_some() || game.queue.len() >= 2 {
-        let second = game.hold.unwrap_or(game.queue[1]);
+        let second = game.hold.unwrap_or_else(|| game.queue[1]);
         if second == game.queue[0] {
             Moves::empty(second)
         } else {
@@ -34,34 +40,43 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
         Moves::empty(game.queue[0])
     };
 
-    let mut nodes = Vec::with_capacity((moves_a.count() + moves_b.count()) as usize);
+    let config = ctx.config;
+    let weights = ctx.weights;
+    let remaining_depth = ctx.remaining_depth;
+    let queue_first = game.queue[0];
 
-    for mv in moves_a.iter().chain(moves_b.iter()) {
-        let mut child = game.clone();
-        let attack_ctx = child.tick(mv);
+    let all_moves: Vec<_> = moves_a.iter().chain(moves_b.iter()).collect();
 
-        let board_eval = evaluate_with_tt(&child, ctx.weights, ctx.remaining_depth, ctx.tt);
-        let attack_val = f64::from(attack_ctx.attack_sent);
-        let chain_val = shape_chain_value(attack_ctx.combo_after);
-        let score = assemble_composite(board_eval, attack_val, chain_val, ctx.config);
+    all_moves
+        .par_iter()
+        .map(|&mv| {
+            let mut child = game.clone();
+            let attack_ctx = child.tick(mv);
 
-        let hold_used = mv.piece() != game.queue[0];
+            let path = vec![mv];
+            let mut local_tt = None;
+            let board_eval =
+                evaluate_with_tt(&child, weights, remaining_depth, &mut local_tt, Some(&path));
+            let attack_val = f64::from(attack_ctx.attack_sent);
+            let chain_val = shape_chain_value(attack_ctx.combo_after);
+            let score = assemble_composite(board_eval, attack_val, chain_val, config);
 
-        nodes.push(SearchNode {
-            game: child,
-            score,
-            root_move: mv,
-            root_hold_used: hold_used,
-            path: vec![mv],
-            attack_score: attack_val,
-            chain_score: chain_val,
-            board_score: board_eval,
-            path_attack: attack_val,
-            path_chain: chain_val,
-        });
-    }
+            let hold_used = mv.piece() != queue_first;
 
-    nodes
+            SearchNode {
+                game: child,
+                score,
+                root_move: mv,
+                root_hold_used: hold_used,
+                path,
+                attack_score: attack_val,
+                chain_score: chain_val,
+                board_score: board_eval,
+                path_attack: attack_val,
+                path_chain: chain_val,
+            }
+        })
+        .collect()
 }
 
 /// Expand a single node into all its children.
@@ -84,7 +99,7 @@ pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
     );
 
     let moves_b = if parent.game.hold.is_some() || parent.game.queue.len() >= 2 {
-        let second = parent.game.hold.unwrap_or(parent.game.queue[1]);
+        let second = parent.game.hold.unwrap_or_else(|| parent.game.queue[1]);
         if second == current_piece {
             Moves::empty(second)
         } else {
@@ -110,7 +125,16 @@ pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
         let mut child = parent.game.clone();
         let attack_ctx = child.tick(mv);
 
-        let board_eval = evaluate_with_tt(&child, ctx.weights, ctx.remaining_depth, ctx.tt);
+        let mut path = parent.path.clone();
+        path.push(mv);
+
+        let board_eval = evaluate_with_tt(
+            &child,
+            ctx.weights,
+            ctx.remaining_depth,
+            ctx.tt,
+            Some(&path),
+        );
         let attack_val = f64::from(attack_ctx.attack_sent);
         let chain_val = shape_chain_value(attack_ctx.combo_after);
 
@@ -123,9 +147,6 @@ pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
             cum_chain / depth_factor,
             ctx.config,
         );
-
-        let mut path = parent.path.clone();
-        path.push(mv);
 
         out.push(SearchNode {
             game: child,
@@ -217,13 +238,20 @@ fn dummy_attack_ctx<const N: usize>(game: &Game<N>) -> rue_core::game::attack::A
 }
 
 /// Evaluate a board with optional transposition table caching.
-/// Caches the structural board evaluation (height, holes, bumpiness) only;
-/// attack/active bonuses are excluded so the cache is position-only.
+///
+/// When `path` is `Some`, uses [`Weights::evaluate_with_path`] which includes
+/// piece-history awareness (relevant for the `Deep` model).  The TT still keys
+/// on board hash only — different paths reaching the same position share the
+/// cached value, which is a reasonable approximation since history effects are
+/// secondary to board structure.
+///
+/// When `path` is `None`, falls back to the board-only [`Weights::evaluate`].
 fn evaluate_with_tt<const N: usize, W: Weights>(
     game: &Game<N>,
     weights: &W,
     remaining_depth: usize,
     tt: &mut Option<FxHashMap<u64, (u8, f64)>>,
+    path: Option<&[Move]>,
 ) -> f64 {
     if let Some(table) = tt.as_mut() {
         let depth = remaining_depth.min(u8::MAX as usize) as u8;
@@ -236,11 +264,17 @@ fn evaluate_with_tt<const N: usize, W: Weights>(
         }
 
         let ctx = dummy_attack_ctx(game);
-        let score = weights.evaluate(game, &ctx);
+        let score = match path {
+            Some(p) => weights.evaluate_with_path(game, &ctx, p),
+            None => weights.evaluate(game, &ctx),
+        };
         table.insert(hash, (depth, score));
         return score;
     }
 
     let ctx = dummy_attack_ctx(game);
-    weights.evaluate(game, &ctx)
+    match path {
+        Some(p) => weights.evaluate_with_path(game, &ctx, p),
+        None => weights.evaluate(game, &ctx),
+    }
 }

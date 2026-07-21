@@ -36,7 +36,7 @@ pub fn move_to_key(m: BotMove) -> Key {
     BotMove::Hold => Key::Hold,
     BotMove::Path(Input::ShiftLeft | Input::DasLeft) => Key::MoveLeft,
     BotMove::Path(Input::ShiftRight | Input::DasRight) => Key::MoveRight,
-    BotMove::Path(Input::SoftDrop | Input::SonicDrop) => Key::SoftDrop,
+    BotMove::Path(Input::SoftDrop) => Key::SoftDrop,
     BotMove::Path(Input::HardDrop) => Key::HardDrop,
     BotMove::Path(Input::RotateCW) => Key::RotateCW,
     BotMove::Path(Input::RotateCCW) => Key::RotateCCW,

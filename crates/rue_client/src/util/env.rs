@@ -7,8 +7,7 @@ pub struct Env {
 
 /// Default weights path, resolved from the source tree at compile time so it
 /// doesn't depend on the working directory the binary happens to be launched from.
-const DEFAULT_WEIGHTS: &str =
-  concat!(env!("CARGO_MANIFEST_DIR"), "/../../weights/simple-6a51a732.json");
+const DEFAULT_WEIGHTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../weights/simple.json");
 
 static ENV: OnceLock<Env> = OnceLock::new();
 

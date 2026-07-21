@@ -4,12 +4,13 @@
 //! height to minimize memory usage. Band width is determined by the height
 //! after placing a piece and running initial move generation.
 
-use rue_core::{header::top_extent, piece::Piece};
+use rue_core::header::top_extent;
+use rue_core::piece::Piece;
 
 /// Select the minimum band width (in u64 words) needed to store height `h`.
 /// Each word holds 6 rows ([`TLINES`]), so we need `ceil(h / TLINES)` words.
 /// Options are capped at [1, 2, 3, 4, 8].
-/// 
+///
 /// [`TLINES`]: [`rue_core::header::TLINES`]
 #[inline]
 #[must_use]

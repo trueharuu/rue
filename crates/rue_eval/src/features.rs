@@ -1,6 +1,7 @@
 //! Known feature extractions.
 
-use rue_core::{board::Board, header::WIDTH};
+use rue_core::board::Board;
+use rue_core::header::WIDTH;
 
 /// Returns the heights of each column in the board.
 #[inline]

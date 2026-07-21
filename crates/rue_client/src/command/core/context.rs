@@ -56,7 +56,7 @@ impl<'a> Context<'a> {
     /// Return the next whitespace-delimited word, or `None` if exhausted.
     pub fn next_word(&mut self) -> Option<&str> {
         let remaining = self.remaining();
-        
+
         let trimmed = remaining.trim_start_matches(char::is_whitespace);
         if trimmed.is_empty() {
             return None;

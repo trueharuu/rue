@@ -4,8 +4,11 @@
 //! fuses the iteration and leaf evaluation to avoid per-child dispatch overhead,
 //! height rescans, and the full piece/band-width dispatch chain.
 
-use rue_core::{board::Board, header::top_extent, piece::Piece};
-use rue_nav::{buffer::Moves, movegen::count_locks};
+use rue_core::board::Board;
+use rue_core::header::top_extent;
+use rue_core::piece::Piece;
+use rue_nav::buffer::Moves;
+use rue_nav::movegen::count_locks;
 
 use crate::height::band_words;
 

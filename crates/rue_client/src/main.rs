@@ -1,9 +1,12 @@
 //! Rue's TETR.IO client.
 pub mod command;
+pub mod game;
+pub mod root;
+pub mod util;
 
 use triangle::ClientOptions;
 
-use crate::command::core::{context::Context, registry::{Registry}};
+use crate::command::core::{context::Context, registry::Registry};
 
 #[tokio::main]
 /// Entrypoint.
@@ -21,6 +24,14 @@ pub async fn main() -> anyhow::Result<()> {
     // todo: wire up message reception from triangle, parse command name,
     // look up in registry, dispatch with Context, and forward replies
     // from the channel back to the room
+
+    root::master::Master::new()
+        .await
+        .expect("Failed to start master client");
+    tokio::signal::ctrl_c().await.ok();
+    util::events::events()
+        .emit(util::events::msgs::Shutdown)
+        .await;
 
     Ok(())
 }

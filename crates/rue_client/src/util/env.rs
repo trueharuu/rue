@@ -1,19 +1,14 @@
-use clap::Parser;
 use std::sync::OnceLock;
-use validator::Validate;
 
-#[derive(Parser, Validate, Debug)]
 pub struct Env {
-  #[arg(long, env = "TOKEN")]
-  #[validate(length(min = 1, message = "Token cannot be empty"))]
   pub token: String,
-
-  #[arg(long, default_value_t = false)]
-  pub server: bool,
-
-  #[arg(long, env = "WEIGHTS", default_value_t = String::from("weights/weights.json"))]
   pub weights: String,
 }
+
+/// Default weights path, resolved from the source tree at compile time so it
+/// doesn't depend on the working directory the binary happens to be launched from.
+const DEFAULT_WEIGHTS: &str =
+  concat!(env!("CARGO_MANIFEST_DIR"), "/../../weights/simple-6a51a732.json");
 
 static ENV: OnceLock<Env> = OnceLock::new();
 
@@ -22,11 +17,8 @@ pub fn env() -> &'static Env {
 }
 
 pub fn parse_env() {
-  let parsed_env = Env::parse();
-  if let Err(errors) = parsed_env.validate() {
-    eprintln!("Envuration error:\n{}", errors);
-    std::process::exit(1);
-  }
+  let token = std::env::var("TOKEN").expect("TOKEN must be set in .env");
+  let weights = std::env::var("WEIGHTS").unwrap_or_else(|_| DEFAULT_WEIGHTS.to_string());
 
-  ENV.set(parsed_env).unwrap();
+  ENV.set(Env { token, weights }).ok();
 }

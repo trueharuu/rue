@@ -154,9 +154,10 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {
             Box::leak(
-                vec![#(<#param_types as crate::command::ParseArgument>::label()),*]
+                vec![#(<#param_types as crate::command::core::arguments::ParseArgument>::label()),*]
                     .into_iter()
                     .map(|s| format!("<{s}>"))
+                    .collect::<Vec<_>>()
                     .join(" ")
                     .into_boxed_str()
             ) as &str
@@ -188,7 +189,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
             ) -> anyhow::Result<()> {
                 #(
                     let #param_names =
-                        <#param_types as crate::command::core::traits::ParseArgument>::parse(ctx)?;
+                        <#param_types as crate::command::core::arguments::ParseArgument>::parse(ctx)?;
                 )*
                 #func_name(ctx, #(#param_names),*).await
             }

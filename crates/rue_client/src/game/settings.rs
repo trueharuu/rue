@@ -66,7 +66,7 @@ impl SettingsHandler {
           .and_then(|o| o.spinbonuses.as_ref())
           .map_or(false, |v| matches!(v, SpinBonuses::AllMiniPlus | SpinBonuses::AllPlus));
         if !ok {
-          err("falcon does not support spin bonuses outside of all-mini+ and all+.")
+          err("rue does not support spin bonuses outside of all-mini+ and all+.")
         } else {
           None
         }
@@ -78,7 +78,7 @@ impl SettingsHandler {
           .and_then(|o| o.passthrough.as_ref())
           .map_or(false, |v| matches!(v, Passthrough::Zero));
         if !ok {
-          err("falcon only supports zero passthrough.")
+          err("rue only supports zero passthrough.")
         } else {
           None
         }
@@ -90,7 +90,7 @@ impl SettingsHandler {
           .and_then(|o| o.kickset.as_ref())
           .map_or(false, |v| matches!(v, KickTable::SRSPlus));
         if !ok {
-          err(r#"falcon only supports the "SRS+" kick table."#)
+          err(r#"rue only supports the "SRS+" kick table."#)
         } else {
           None
         }
@@ -102,7 +102,7 @@ impl SettingsHandler {
           .and_then(|o| o.allow_harddrop)
           .unwrap_or(false);
         if !ok {
-          err("falcon requires hard drop to be enabled in order to play.")
+          err("rue requires hard drop to be enabled in order to play.")
         } else {
           None
         }
@@ -114,7 +114,7 @@ impl SettingsHandler {
           .and_then(|o| o.are)
           .map_or(false, |v| v == 0);
         if !ok {
-          err(r#"falcon only supports "0" ARE."#)
+          err(r#"rue only supports "0" ARE."#)
         } else {
           None
         }
@@ -126,7 +126,7 @@ impl SettingsHandler {
           .and_then(|o| o.lineclear_are)
           .map_or(false, |v| v == 0);
         if !ok {
-          err(r#"falcon only supports "0" line clear ARE."#)
+          err(r#"rue only supports "0" line clear ARE."#)
         } else {
           None
         }
@@ -138,7 +138,7 @@ impl SettingsHandler {
           .and_then(|o| o.room_handling)
           .map_or(true, |v| !v);
         if !ok {
-          err("falcon does not support custom room handling.")
+          err("rue does not support custom room handling.")
         } else {
           None
         }
@@ -150,7 +150,7 @@ impl SettingsHandler {
           .and_then(|o| o.boardwidth)
           .map_or(false, |v| v == 10);
         if !ok {
-          err("falcon currently only supports boards with a width of 10.")
+          err("rue currently only supports boards with a width of 10.")
         } else {
           None
         }
@@ -162,7 +162,7 @@ impl SettingsHandler {
           .and_then(|o| o.g)
           .map_or(false, |v| v == 0.0);
         if !ok {
-          err("falcon requires 0 gravity.")
+          err("rue requires 0 gravity.")
         } else {
           None
         }
@@ -174,7 +174,7 @@ impl SettingsHandler {
           .and_then(|o| o.gincrease)
           .map_or(false, |v| v == 0.0);
         if !ok {
-          err("falcon requires 0 gravity increase.")
+          err("rue requires 0 gravity increase.")
         } else {
           None
         }
@@ -186,7 +186,7 @@ impl SettingsHandler {
           .and_then(|o| o.locktime)
           .map_or(false, |v| v > 1);
         if !ok {
-          err("falcon requires at least 1 lock delay.")
+          err("rue requires at least 1 lock delay.")
         } else {
           None
         }
@@ -198,7 +198,7 @@ impl SettingsHandler {
           .and_then(|o| o.nolockout)
           .unwrap_or(false);
         if !ok {
-          err("falcon does not support lockout.")
+          err("rue does not support lockout.")
         } else {
           None
         }
@@ -210,7 +210,7 @@ impl SettingsHandler {
           .and_then(|o| o.stock)
           .map_or(false, |v| v == 0);
         if !ok {
-          err("falcon does not support stock, but will soon.")
+          err("rue does not support stock, but will soon.")
         } else {
           None
         }
@@ -219,7 +219,7 @@ impl SettingsHandler {
         let gamemode = &data.r#match.gamemode;
         let ok = gamemode == "versus" || gamemode == "practice";
         if !ok {
-          err("falcon does not properly support royale mode.")
+          err("rue does not properly support royale mode.")
         } else {
           None
         }
@@ -231,7 +231,7 @@ impl SettingsHandler {
           .and_then(|o| o.garbagephase)
           .map_or(false, |v| v == 0);
         if !ok {
-          err("falcon does not yet support garbage phasing.")
+          err("rue does not yet support garbage phasing.")
         } else {
           None
         }
@@ -243,7 +243,7 @@ impl SettingsHandler {
           .and_then(|o| o.garbageentry.as_ref())
           .map_or(false, |v| *v == GarbageEntry::Instant);
         if !ok {
-          err("falcon does not support non-instant garbage entry.")
+          err("rue does not support non-instant garbage entry.")
         } else {
           None
         }
@@ -255,7 +255,7 @@ impl SettingsHandler {
           .and_then(|o| o.garbagequeue)
           .map_or(true, |v| !v);
         if !ok {
-          err("falcon does not support garbage queue.")
+          err("rue does not support garbage queue.")
         } else {
           None
         }
@@ -267,7 +267,7 @@ impl SettingsHandler {
           .and_then(|o| o.messiness_timeout)
           .map_or(false, |v| v == 0.0);
         if !ok {
-          err("falcon does not support messiness timeout.")
+          err("rue does not support messiness timeout.")
         } else {
           None
         }
@@ -279,7 +279,7 @@ impl SettingsHandler {
           .and_then(|o| o.bagtype.as_ref())
           .map_or(true, |v| matches!(v, BagType::Bag7));
         if !ok {
-          err(r#"falcon does not support the "classic" or "total mayhem" bag types."#)
+          err(r#"rue does not support the "classic" or "total mayhem" bag types."#)
         } else {
           None
         }
@@ -291,7 +291,7 @@ impl SettingsHandler {
           .and_then(|o| o.garbagetargetbonus.as_ref())
           .map_or(false, |v| *v == GarbageTargetBonus::None);
         if !ok {
-          err("falcon does not support garbage targeting bonuses.")
+          err("rue does not support garbage targeting bonuses.")
         } else {
           None
         }

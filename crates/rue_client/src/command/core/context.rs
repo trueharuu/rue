@@ -1,5 +1,10 @@
 //! Command execution contexts.
 
+use std::sync::Arc;
+
+use super::traits::User;
+use crate::game::Bot;
+
 /// The execution context passed to a command handler.
 ///
 /// Wraps the argument text and provides helpers for parsing typed
@@ -11,16 +16,27 @@ pub struct Context<'a> {
     offset: usize,
     /// Channel used to send reply messages back to the source.
     reply_tx: &'a tokio::sync::mpsc::Sender<String>,
+    /// The bot instance the command is running against.
+    pub bot: Arc<Bot>,
+    /// The user who invoked the command.
+    pub user: User,
 }
 
 impl<'a> Context<'a> {
     /// Create a new context from the argument portion of a message.
     #[must_use]
-    pub fn new(args_text: &'a str, reply_tx: &'a tokio::sync::mpsc::Sender<String>) -> Self {
+    pub fn new(
+        args_text: &'a str,
+        reply_tx: &'a tokio::sync::mpsc::Sender<String>,
+        bot: Arc<Bot>,
+        user: User,
+    ) -> Self {
         Self {
             args_text,
             offset: 0,
             reply_tx,
+            bot,
+            user,
         }
     }
 

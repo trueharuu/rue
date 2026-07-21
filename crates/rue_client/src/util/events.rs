@@ -67,7 +67,7 @@ impl Events {
       match serde_json::from_value::<T>(val) {
         Ok(event) => Box::pin(cb.clone().call(event)),
         Err(e) => Box::pin(async move {
-          tracing::error!("Failed to parse event {}: {}", T::NAME, e);
+          eprintln!("Failed to parse event {}: {}", T::NAME, e);
         }),
       }
     })
@@ -93,7 +93,7 @@ impl Events {
     let data = match serde_json::to_value(&event) {
       Ok(v) => v,
       Err(e) => {
-        tracing::error!("Failed to serialize event {}: {}", T::NAME, e);
+        eprintln!("Failed to serialize event {}: {}", T::NAME, e);
         return;
       }
     };

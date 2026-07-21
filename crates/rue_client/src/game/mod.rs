@@ -7,7 +7,6 @@ use tokio::sync::{Mutex, RwLock};
 use triangle::{
     Client, ClientOptions, Engine,
     classes::ribbon,
-    engine::queue::Mino,
     types::{
         events::recv,
         game::{Key, tick},
@@ -18,14 +17,39 @@ use triangle::{
 
 use triangle::engine::queue::bag::BagType;
 
-use crate::{command::core::traits::{Category, Restriction}, util::{
-    commands::{Commands, User},
-    config::CONFIG,
-    env::env,
-    events::{events, msgs},
-}};
+use rue_core::{
+    board::Board,
+    game::{Game, garbage::GarbageQueue, ruleset::SEASON_2},
+    piece::Piece,
+    rng::{Rng, RngKind},
+};
+use rue_eval::simple::Simple;
+use rue_nav::pathfinder;
+use rue_search::{SearchConfig, beam_search};
+
+use crate::{
+    command::{self, core::{registry::Registry, traits::{Restriction, User}}},
+    util::{config::CONFIG, env::env, events::{events, msgs}},
+};
 
 use settings::{ConstraintLevel, SettingsHandler};
+use utils::BotMove;
+
+/// Number of 6-row bands backing the live game board (42 rows).
+const BOARD_BANDS: usize = 7;
+/// The persistent solver-side game state kept for the live room.
+type BotGame = Game<BOARD_BANDS>;
+
+/// Chat command prefix.
+const PREFIX: &str = ">";
+/// Bot name, used in reply/restriction messages.
+const BOT_NAME: &str = "rue";
+/// Beam search depth (in placements) used for real-time move selection.
+const SEARCH_DEPTH: usize = 6;
+/// Beam width used for real-time move selection.
+const SEARCH_BEAM_WIDTH: usize = 300;
+/// Minimum queue length to keep buffered ahead of the search depth.
+const QUEUE_LOOKAHEAD: usize = SEARCH_DEPTH + 7;
 
 struct FrameCounter(f64);
 impl FrameCounter {
@@ -68,16 +92,16 @@ pub enum Finesse {
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pps: f64,
-    burst: bool,
-    finesse: Finesse,
+    pub pps: f64,
+    pub burst: bool,
+    pub finesse: Finesse,
 }
 
 #[derive(Debug, Clone)]
 pub struct EnabledState {
-    value: bool,
-    attempt: bool,
-    force: bool,
+    pub value: bool,
+    pub attempt: bool,
+    pub force: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -88,19 +112,20 @@ pub struct GameState {
 
 #[derive(Debug, Clone)]
 pub struct State {
-    enabled: EnabledState,
+    pub enabled: EnabledState,
     game: Option<GameState>,
-    restriction: Restriction,
+    pub restriction: Restriction,
 }
 
 pub struct Bot {
-    engine: Mutex<Falcon<7, 500>>,
+    game: Mutex<BotGame>,
+    weights: Simple,
     pub client: Client,
     pub config: RwLock<Config>,
     pub state: RwLock<State>,
     pub settings: SettingsHandler,
     events: EventEmitter,
-    pub commands: Commands<Restriction, Category, Arc<Bot>>,
+    pub registry: Registry,
 }
 
 #[derive(Debug)]
@@ -133,6 +158,15 @@ impl std::error::Error for BotError {
 impl From<std::io::Error> for BotError {
     fn from(err: std::io::Error) -> Self {
         BotError::IoError(err)
+    }
+}
+
+/// Appends `n` shuffled 7-bags to the end of the queue.
+fn fill(queue: &mut Vec<Piece>, rng: &mut Rng, n: usize) {
+    for _ in 0..n {
+        let mut slice = RngKind::Bag7.slice();
+        rng.shuffle_array(&mut slice);
+        queue.extend_from_slice(&slice);
     }
 }
 
@@ -176,31 +210,34 @@ impl Bot {
             .await
             .map_err(|_| BotError::RoomError(WrapError::ServerError))?;
 
-        let mut cmd = Commands::new(
-            vec![
-                Restriction::None,
-                Restriction::Player,
-                Restriction::Host,
-                Restriction::Dev,
-            ],
-            vec![
-                Category::Info,
-                Category::Controls,
-                Category::Solver,
-                Category::Dev,
-            ],
-            ">",
-            "",
-            "falcon",
-        );
-        commands::register(&mut cmd);
+        let mut registry = Registry::new();
+        registry.register(Box::new(command::info::ping_command));
+        registry.register(Box::new(command::info::help_command));
+        registry.register(Box::new(command::controls::kill_command));
+        registry.register(Box::new(command::controls::enable_command));
+        registry.register(Box::new(command::controls::disable_command));
+        registry.register(Box::new(command::controls::restrict_command));
+        registry.register(Box::new(command::controls::pps_command));
+        registry.register(Box::new(command::controls::burst_command));
+        registry.register(Box::new(command::controls::finesse_command));
 
         let weights =
-            serde_json::from_str::<Weights>(&std::fs::read_to_string(env().weights.clone())?)
+            serde_json::from_str::<Simple>(&std::fs::read_to_string(env().weights.clone())?)
                 .map_err(|e| BotError::IoError(e.into()))?;
 
         let bot = Arc::new(Bot {
-            engine: Mutex::new(Falcon::new(weights)),
+            // Real seeding happens once the room's queue seed is known, on round start.
+            game: Mutex::new(Game {
+                board: Board::EMPTY,
+                hold: None,
+                queue: Vec::new(),
+                garbage_queue: GarbageQueue::new(),
+                b2b_count: None,
+                combo_count: None,
+                ruleset: SEASON_2,
+                rng: Rng::new(),
+            }),
+            weights,
             client,
             settings: SettingsHandler::new(),
             config: RwLock::new(Config {
@@ -218,7 +255,7 @@ impl Bot {
                 restriction: Restriction::None,
             }),
             events: EventEmitter::new(),
-            commands: cmd,
+            registry,
         });
 
         bot.handle_room_update(room_update_data, true).await;
@@ -265,7 +302,7 @@ impl Bot {
 
         self.client
             .on::<recv::client::game::round::End>(async move |_| {
-                b.state.write().game = None;
+                b.state.write().await.game = None;
             });
 
         let b = self.clone();
@@ -284,22 +321,32 @@ impl Bot {
             }
 
             let bot_username = b.client.user.username.clone();
-            let prefix = b.commands.prefix.clone();
 
             if data.content == format!("@{}", bot_username) {
                 if let Some(room) = b.client.room() {
-                    room.chat(&format!("My prefix is {}", prefix)).await.ok();
+                    room.chat(&format!("My prefix is {PREFIX}")).await.ok();
                 }
                 return;
             }
 
             let content = if data.content.starts_with(&format!("@{} ", bot_username)) {
                 data.content
-                    .replacen(&format!("@{} ", bot_username), &prefix, 1)
+                    .replacen(&format!("@{} ", bot_username), PREFIX, 1)
             } else {
                 data.content.clone()
             }
             .to_lowercase();
+
+            let Some(rest) = content.strip_prefix(PREFIX) else {
+                return;
+            };
+
+            let mut parts = rest.splitn(2, char::is_whitespace);
+            let cmd_name = parts.next().unwrap_or("");
+            if cmd_name.is_empty() {
+                return;
+            }
+            let args_text = parts.next().unwrap_or("");
 
             let user_id = data.user.id.as_deref().unwrap_or("").to_string();
             let room_info = b.client.room().map(|r| {
@@ -328,28 +375,45 @@ impl Bot {
                 level,
             };
 
-            let b2 = b.clone();
-            let futures = {
-                b.commands.prepare_calls(
-                    user,
-                    &content,
-                    b2.clone(),
-                    b.state.read().await.restriction,
-                    move |message| {
-                        let bb = b2.clone();
-                        let msg = message.clone();
-                        tokio::spawn(async move {
-                            if let Some(room) = bb.client.room() {
-                                room.chat(&msg).await.ok();
-                            }
-                        });
-                    },
-                )
+            let Some(cmd) = b.registry.find(cmd_name) else {
+                if let Some(room) = b.client.room() {
+                    room.chat(&format!(
+                        "Unknown command.\nRun {PREFIX}help for a list of valid commands."
+                    ))
+                    .await
+                    .ok();
+                }
+                return;
             };
 
-            for fut in futures {
-                fut.await;
+            let meta = cmd.metadata();
+            let restriction = b.state.read().await.restriction;
+            if user.level < meta.restriction_level || user.level < restriction {
+                if let Some(room) = b.client.room() {
+                    room.chat(&format!("{BOT_NAME}'s commands are currently restricted."))
+                        .await
+                        .ok();
+                }
+                return;
             }
+
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(8);
+            let b_replies = b.clone();
+            tokio::spawn(async move {
+                while let Some(message) = rx.recv().await {
+                    if let Some(room) = b_replies.client.room() {
+                        room.chat(&message).await.ok();
+                    }
+                }
+            });
+
+            let mut ctx = crate::command::core::context::Context::new(
+                args_text,
+                &tx,
+                b.clone(),
+                user,
+            );
+            cmd.execute(&mut ctx).await.ok();
         });
 
         // this.client.on("client.room.players", (players) => {
@@ -392,66 +456,38 @@ impl Bot {
 
                 b.client.game().unwrap().me.unwrap().set_pause_iges(true);
 
-                let bag = match engine.queue.kind {
-                    BagType::Bag7 => Bag::Bag7,
-                    _ => {
-                        tracing::error!("Unsupported bag type: {:?}", engine.queue.kind);
-                        return;
-                    }
-                };
-
-                {
-                    let mut falcon = b.engine.lock();
-                    falcon.start(
-                        GameConfig {
-                            b2b_chaining: engine.initializer.b2b.chaining,
-                            b2b_charging: engine.initializer.b2b.charging.is_some(),
-                            b2b_charge_at: engine
-                                .initializer
-                                .b2b
-                                .charging
-                                .as_ref()
-                                .map(|v| v.at as i16)
-                                .unwrap_or(0),
-                            b2b_charge_base: engine
-                                .initializer
-                                .b2b
-                                .charging
-                                .as_ref()
-                                .map(|v| v.base as i16)
-                                .unwrap_or(0),
-                            combo_table: engine.initializer.options.combo_table,
-                            garbage_multiplier: engine.initializer.garbage.multiplier.value as f32,
-                            garbage_cap: engine.initializer.garbage.cap.value as u16,
-                            garbage_special_bonus: engine.initializer.garbage.special_bonus,
-                            kicks: engine.initializer.kick_table,
-                            pc_b2b: engine
-                                .initializer
-                                .pc
-                                .as_ref()
-                                .map(|pc| pc.b2b as u16)
-                                .unwrap_or(0),
-                            pc_send: engine
-                                .initializer
-                                .pc
-                                .as_ref()
-                                .map(|pc| pc.garbage as u8)
-                                .unwrap_or(0),
-                            spins: engine.initializer.options.spin_bonuses,
-                            bag,
-                        },
-                        engine.queue.seed as u64,
-                        bag,
-                    );
+                if !matches!(engine.queue.kind, BagType::Bag7) {
+                    eprintln!("Unsupported bag type: {:?}", engine.queue.kind);
+                    return;
                 }
 
                 {
-                    b.state.write().game = Some(GameState {
+                    let mut rng = Rng::new_seeded(engine.queue.seed as i32);
+                    let mut queue = Vec::new();
+                    fill(&mut queue, &mut rng, QUEUE_LOOKAHEAD.div_ceil(7).max(1));
+
+                    let mut game = b.game.lock().await;
+                    *game = Game {
+                        board: Board::EMPTY,
+                        hold: None,
+                        queue,
+                        garbage_queue: GarbageQueue::new(),
+                        b2b_count: None,
+                        combo_count: None,
+                        ruleset: SEASON_2,
+                        rng,
+                    };
+                }
+
+                {
+                    let mut state = b.state.write().await;
+                    state.game = Some(GameState {
                         last_piece_frame: 0,
                         target_frame: 0,
                     });
-                    let target_frame = b.next_piece_frame(&engine, None, None);
-                    b.state.write().game = Some(GameState {
+                    drop(state);
+                    let target_frame = b.next_piece_frame(&engine, None, None).await;
+                    b.state.write().await.game = Some(GameState {
                         last_piece_frame: engine.frame,
                         target_frame,
                     });
@@ -488,7 +524,7 @@ impl Bot {
                     room.switch(Bracket::Spectator).await.ok();
                 }
                 {
-                    let mut state = self.state.write();
+                    let mut state = self.state.write().await;
                     state.enabled.attempt = true;
                     state.enabled.value = false;
                 }
@@ -497,21 +533,21 @@ impl Bot {
                     && result
                         .outputs
                         .iter()
-                        .any(|o| o.message == "falcon requires 0 gravity increase.")
+                        .any(|o| o.message == "rue requires 0 gravity increase.")
                     && result
                         .outputs
                         .iter()
-                        .any(|o| o.message == "falcon requires 0 gravity.")
+                        .any(|o| o.message == "rue requires 0 gravity.")
                 {
                     if let Some(room) = self.client.room() {
-                        room.chat("Paste:\n\n/set options.g=0;options.gincrease=0;\n\nin chat and press enter to enable falcon.").await.ok();
+                        room.chat("Paste:\n\n/set options.g=0;options.gincrease=0;\n\nin chat and press enter to enable rue.").await.ok();
                     }
                 }
 
                 return;
             }
         }
-        let attempt = self.state.read().enabled.attempt;
+        let attempt = self.state.read().await.enabled.attempt;
         if result
             .as_ref()
             .map_or(true, |r| r.level != ConstraintLevel::Error)
@@ -520,7 +556,7 @@ impl Bot {
             if let Some(mut room) = self.client.room() {
                 room.switch(Bracket::Player).await.ok();
             }
-            self.state.write().enabled.value = true;
+            self.state.write().await.enabled.value = true;
         }
     }
 
@@ -565,7 +601,7 @@ impl Bot {
         (2.0 - pps.ln() / 20f64.ln()).max(1.0)
     }
 
-    fn burst_factor(&self, engine: &Engine, opponent: Option<&Engine>) -> f64 {
+    async fn burst_factor(&self, engine: &Engine, opponent: Option<&Engine>) -> f64 {
         const BUFFER: f64 = 8.0;
         const FACTOR_DEFENSIVE: f64 = 0.3;
         const FACTOR_OFFENSIVE: f64 = 0.1;
@@ -594,7 +630,7 @@ impl Bot {
                 .max(0.0)
         };
 
-        let pps = self.config.read().pps;
+        let pps = self.config.read().await.pps;
         let factor = if is_offensive {
             FACTOR_OFFENSIVE
         } else {
@@ -603,27 +639,27 @@ impl Bot {
         (size / BUFFER * factor + 1.0).min(Self::max_burst_speed(pps))
     }
 
-    fn effective_pps(&self, engine: &Engine, opponent: Option<&Engine>) -> f64 {
-        let pps = self.config.read().pps;
-        if !self.config.read().burst {
+    async fn effective_pps(&self, engine: &Engine, opponent: Option<&Engine>) -> f64 {
+        let pps = self.config.read().await.pps;
+        if !self.config.read().await.burst {
             return pps;
         }
         match Self::bursting(engine, opponent) {
-            Some(_) => pps * self.burst_factor(engine, opponent),
+            Some(_) => pps * self.burst_factor(engine, opponent).await,
             None => pps,
         }
     }
 
-    fn next_piece_frame(
+    async fn next_piece_frame(
         &self,
         engine: &Engine,
         next_hard_drop_frame: Option<f64>,
         opponent: Option<&Engine>,
     ) -> u64 {
         const MAX_DELTA: f64 = 0.2;
-        let pps = self.effective_pps(engine, opponent);
+        let pps = self.effective_pps(engine, opponent).await;
         let last_piece_frame = {
-            let state = self.state.read();
+            let state = self.state.read().await;
             state
                 .game
                 .as_ref()
@@ -644,19 +680,25 @@ impl Bot {
         result.max(next_hd).max(engine.frame as f64 + 1.0) as u64
     }
 
-    fn keypress_duration(&self, m: &Move, engine: &Engine) -> f64 {
-        if m == &Move::SoftDrop {
+    fn keypress_duration(&self, m: &BotMove, engine: &Engine) -> f64 {
+        if matches!(
+            m,
+            BotMove::Path(pathfinder::Input::SoftDrop | pathfinder::Input::SonicDrop)
+        ) {
             0.1
-        } else if m == &Move::DasLeft || m == &Move::DasRight {
+        } else if matches!(
+            m,
+            BotMove::Path(pathfinder::Input::DasLeft | pathfinder::Input::DasRight)
+        ) {
             engine.handling.das + 0.1
         } else {
             0.0
         }
     }
 
-    fn process_keys(
+    async fn process_keys(
         &self,
-        raw: &[Move],
+        raw: &[BotMove],
         engine: &Engine,
         opponent: Option<&Engine>,
     ) -> Vec<tick::Keypress> {
@@ -668,7 +710,7 @@ impl Bot {
 
         let now = engine.frame;
 
-        let finesse = self.config.read().finesse;
+        let finesse = self.config.read().await.finesse;
         let frames: Vec<InternalKeypress> = match finesse {
             Finesse::Instant => {
                 let mut frame = FrameCounter::new(now);
@@ -692,16 +734,30 @@ impl Bot {
                 let mut frame = FrameCounter::new(now);
                 let time_to_next = (self
                     .next_piece_frame(engine, None, opponent)
+                    .await
                     .saturating_sub(now)
                     .saturating_sub(1))
                 .min(MAX_PIECE_FRAMES);
 
                 let arr = engine.handling.arr;
 
-                let soft_drop_count = raw.iter().filter(|m| **m == Move::SoftDrop).count();
+                let soft_drop_count = raw
+                    .iter()
+                    .filter(|m| {
+                        matches!(
+                            m,
+                            BotMove::Path(pathfinder::Input::SoftDrop | pathfinder::Input::SonicDrop)
+                        )
+                    })
+                    .count();
                 let das_count = raw
                     .iter()
-                    .filter(|m| **m == Move::DasLeft || **m == Move::DasRight)
+                    .filter(|m| {
+                        matches!(
+                            m,
+                            BotMove::Path(pathfinder::Input::DasLeft | pathfinder::Input::DasRight)
+                        )
+                    })
                     .count();
                 let time_per_press = ((time_to_next as f64
                     - soft_drop_count as f64 * 0.1
@@ -712,13 +768,17 @@ impl Bot {
                 let mut sim_falling = engine.falling.clone();
 
                 // key, frame, duration, delay
-                let mut tmp: Vec<(Move, f64, f64, f64)> = Vec::new();
+                let mut tmp: Vec<(BotMove, f64, f64, f64)> = Vec::new();
 
                 for m in raw {
                     let delay = time_per_press.max(0.0);
-                    let arr_time = if *m == Move::DasLeft || *m == Move::DasRight {
+                    let is_das = matches!(
+                        m,
+                        BotMove::Path(pathfinder::Input::DasLeft | pathfinder::Input::DasRight)
+                    );
+                    let arr_time = if is_das {
                         let x_before = sim_falling.x();
-                        if *m == Move::DasLeft {
+                        if matches!(m, BotMove::Path(pathfinder::Input::DasLeft)) {
                             sim_falling.das_left(&engine.board.state);
                         } else {
                             sim_falling.das_right(&engine.board.state);
@@ -727,11 +787,13 @@ impl Bot {
                         (arr * (displacement - 1.0)).max(0.0)
                     } else {
                         match m {
-                            Move::CW => sim_falling.set_rotation(sim_falling.rotation() as i32 + 1),
-                            Move::CCW => {
+                            BotMove::Path(pathfinder::Input::RotateCW) => {
+                                sim_falling.set_rotation(sim_falling.rotation() as i32 + 1)
+                            }
+                            BotMove::Path(pathfinder::Input::RotateCCW) => {
                                 sim_falling.set_rotation(sim_falling.rotation() as i32 - 1)
                             }
-                            Move::Flip => {
+                            BotMove::Path(pathfinder::Input::RotateFlip) => {
                                 sim_falling.set_rotation(sim_falling.rotation() as i32 + 2)
                             }
                             _ => {}
@@ -746,7 +808,11 @@ impl Bot {
                     let prev_frame = frame.0;
                     frame.add(delay + duration);
 
-                    if *m == Move::SoftDrop && frame.as_f64() != 0.0 {
+                    if matches!(
+                        m,
+                        BotMove::Path(pathfinder::Input::SoftDrop | pathfinder::Input::SonicDrop)
+                    ) && frame.as_f64() != 0.0
+                    {
                         frame = frame.max(FrameCounter((prev_frame + duration).ceil()));
                     }
                 }
@@ -814,20 +880,14 @@ impl Bot {
 
     async fn tick(&self, input: tick::In) -> tick::Out {
         if !input.new_garbage.is_empty() {
-            self.engine.lock().insert_garbage(
-                input
-                    .new_garbage
-                    .iter()
-                    .map(|g| Garbage {
-                        col: g.column as u8,
-                        amt: g.amount as u16,
-                        time: 0,
-                    })
-                    .collect(),
-            );
+            let mut game = self.game.lock().await;
+            let cap = game.ruleset.garbage_absolute_cap;
+            for g in &input.new_garbage {
+                game.garbage_queue.recieve(g.amount, cap);
+            }
         }
 
-        let game_state = { self.state.read().game.as_ref().map(|g| g.target_frame) };
+        let game_state = { self.state.read().await.game.as_ref().map(|g| g.target_frame) };
 
         let Some(target_frame) = game_state else {
             return tick::Out {
@@ -864,7 +924,7 @@ impl Bot {
         }
 
         {
-            let mut state = self.state.write();
+            let mut state = self.state.write().await;
             if let Some(game) = &mut state.game {
                 game.last_piece_frame = input.engine.frame;
             }
@@ -883,64 +943,51 @@ impl Bot {
             })
             .flatten();
 
-        let initial_target = self.next_piece_frame(&input.engine, None, opponent_engine.as_ref());
+        let initial_target = self
+            .next_piece_frame(&input.engine, None, opponent_engine.as_ref())
+            .await;
         {
-            let mut state = self.state.write();
+            let mut state = self.state.write().await;
             if let Some(game) = &mut state.game {
                 game.target_frame = initial_target;
             }
         }
 
-        let garbage_queue: Vec<Garbage> = input
-            .engine
-            .garbage_queue
-            .queue
-            .iter()
-            .map(|g| Garbage {
-                amt: g.amount as u16,
-                col: 0,
-                time: 0,
-            })
-            .collect();
-
-        let opponent_game = match &opponent_engine {
-            Some(engine) => {
-                let mut board = Board::new();
-                for (i, row) in engine.board.state.iter().enumerate() {
-                    if row
-                        .iter()
-                        .any(|mino| mino.as_ref().map_or(false, |t| t.mino == Mino::Garbage))
-                    {
-                        board.garbage = i as u8 + 1;
-                    }
-                    for (j, tile) in row.iter().enumerate() {
-                        if tile.is_some() {
-                            board.cols[j] |= 1 << i;
-                        }
-                    }
-                }
-
-                let mut game = Game::new(engine.falling.symbol);
-                game.board = board;
-                game.b2b = engine.stats.b2b as i16;
-                game.combo = engine.stats.combo as i16;
-                game
+        let raw_keys: Vec<BotMove> = {
+            let mut game = self.game.lock().await;
+            let game = &mut *game;
+            if game.queue.len() < QUEUE_LOOKAHEAD {
+                fill(&mut game.queue, &mut game.rng, 2);
             }
-            None => Game::new(Mino::I),
+
+            let cfg = SearchConfig {
+                beam_width: SEARCH_BEAM_WIDTH,
+                depth: SEARCH_DEPTH,
+                futility_delta: 0.0,
+                ..SearchConfig::default()
+            };
+
+            match beam_search(&game, &cfg, &self.weights) {
+                Some(result) => {
+                    let mv = result.best.root_move;
+                    let requires_hold = mv.piece() != game.queue[0];
+                    let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true, false);
+                    game.tick(mv);
+
+                    let mut raw = Vec::with_capacity(inputs.0.len() + 1);
+                    if requires_hold {
+                        raw.push(BotMove::Hold);
+                    }
+                    raw.extend(inputs.0.into_iter().map(BotMove::Path));
+                    raw
+                }
+                None => Vec::new(),
+            }
         };
 
-        let mv = self.engine.lock().step(garbage_queue, &opponent_game);
-
-        tracing::info!(
-            "keys: {:?}",
-            mv.as_ref().map(|m| m.keys.clone()).unwrap_or_default()
-        );
-
-        let keys = if let Some(res) = mv {
-            self.process_keys(&res.keys, &input.engine, opponent_engine.as_ref())
-        } else {
-            vec![]
-        };
+        let keys = self
+            .process_keys(&raw_keys, &input.engine, opponent_engine.as_ref())
+            .await;
 
         let hd_frame = keys
             .iter()
@@ -948,9 +995,11 @@ impl Bot {
             .find(|kp| kp.data.key == Key::HardDrop)
             .map(|kp| kp.frame as f64);
 
-        let final_target = self.next_piece_frame(&input.engine, hd_frame, opponent_engine.as_ref());
+        let final_target = self
+            .next_piece_frame(&input.engine, hd_frame, opponent_engine.as_ref())
+            .await;
         {
-            let mut state = self.state.write();
+            let mut state = self.state.write().await;
             if let Some(game) = &mut state.game {
                 game.target_frame = final_target;
             }
@@ -962,7 +1011,7 @@ impl Bot {
         }
     }
 
-    async fn destroy(&self) {
+    pub async fn destroy(&self) {
         self.client.destroy().await;
 
         self.events.emit_raw("close", serde_json::json!({}));

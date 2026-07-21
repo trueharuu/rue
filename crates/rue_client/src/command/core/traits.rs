@@ -37,6 +37,17 @@ pub struct CommandMetadata {
     pub category: Category,
 }
 
+/// The user who invoked a command.
+#[derive(Debug, Clone)]
+pub struct User {
+    /// The user's room-scoped id.
+    pub id: String,
+    /// The user's display name.
+    pub name: String,
+    /// The user's resolved restriction level for the room they're in.
+    pub level: Restriction,
+}
+
 /// A registered chat command.
 #[async_trait]
 pub trait Command: Send + Sync {

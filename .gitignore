@@ -5,3 +5,4 @@ ref/
 docs/
 .opencode
 run.txt
+.DS_store

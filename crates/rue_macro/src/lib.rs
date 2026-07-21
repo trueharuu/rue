@@ -3,45 +3,58 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Expr, ExprLit, ItemFn, Lit, LitStr, Meta, parse_macro_input};
+use syn::{Expr, ExprLit, Ident, ItemFn, Lit, LitStr, Meta, Token, bracketed, parse::{Parse, ParseStream}, parse_macro_input};
 
 struct CommandAttrs {
     aliases: Vec<String>,
+    restriction_level: Option<syn::Path>,
+    category: syn::Path,
 }
 
-impl syn::parse::Parse for CommandAttrs {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            return Ok(Self {
-                aliases: Vec::new(),
-            });
-        }
-
+impl Parse for CommandAttrs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut aliases = Vec::new();
+        let mut restriction_level = None;
+        let mut category = None;
 
         while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
+            let ident: Ident = input.parse()?;
+            let _: Token![=] = input.parse()?;
+
             if ident == "aliases" {
-                let _: syn::Token![=] = input.parse()?;
                 let content;
-                syn::bracketed!(content in input);
+                bracketed!(content in input);
                 while !content.is_empty() {
                     let lit: LitStr = content.parse()?;
                     aliases.push(lit.value());
                     if !content.is_empty() {
-                        let _: syn::Token![,] = content.parse()?;
+                        let _: Token![,] = content.parse()?;
                     }
                 }
+            } else if ident == "restriction_level" {
+                restriction_level = Some(input.parse::<syn::Path>()?);
+            } else if ident == "category" {
+                category = Some(input.parse::<syn::Path>()?);
             } else {
-                return Err(syn::Error::new(ident.span(), "expected `aliases`"));
+                return Err(syn::Error::new( 
+                    ident.span(),
+                    "expected `aliases`, `restriction_level`, or `category`",
+                ));
             }
 
             if !input.is_empty() {
-                let _: syn::Token![,] = input.parse()?;
+                let _: Token![,] = input.parse()?;
             }
         }
 
-        Ok(CommandAttrs { aliases })
+        let category = category
+            .ok_or_else(|| syn::Error::new(input.span(), "missing required argument `category`"))?;
+
+        Ok(CommandAttrs {
+            aliases,
+            restriction_level,
+            category,
+        })
     }
 }
 
@@ -94,13 +107,7 @@ fn doc_comment_description(func: &ItemFn) -> String {
 #[proc_macro_attribute]
 pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = parse_macro_input!(item as ItemFn);
-    let attrs = if attr.is_empty() {
-        CommandAttrs {
-            aliases: Vec::new(),
-        }
-    } else {
-        parse_macro_input!(attr as CommandAttrs)
-    };
+    let attrs = parse_macro_input!(attr as CommandAttrs);
 
     let func_name = &func.sig.ident;
     let cmd_name = func_name.to_string();
@@ -108,6 +115,11 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let description = doc_comment_description(&func);
     let aliases = &attrs.aliases;
+    let category = &attrs.category;
+    let restriction_level = match &attrs.restriction_level {
+        Some(path) => quote! { #path },
+        None => quote! { Default::default() },
+    };
 
     // Collect parameter names and types (skipping the first `&Context` param).
     let params: Vec<_> = func.sig.inputs.iter().skip(1).collect();
@@ -142,9 +154,10 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {
             Box::leak(
-                vec![#(<#param_types as crate::command::ParseArgument>::label()),*]
+                vec![#(<#param_types as crate::command::core::arguments::ParseArgument>::label()),*]
                     .into_iter()
                     .map(|s| format!("<{s}>"))
+                    .collect::<Vec<_>>()
                     .join(" ")
                     .into_boxed_str()
             ) as &str
@@ -165,6 +178,8 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
                     aliases: &[#(#aliases),*],
                     description: #description,
                     usage: #usage_tokens,
+                    category: #category,
+                    restriction_level: #restriction_level,
                 })
             }
 
@@ -174,7 +189,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
             ) -> anyhow::Result<()> {
                 #(
                     let #param_names =
-                        <#param_types as crate::command::core::traits::ParseArgument>::parse(ctx)?;
+                        <#param_types as crate::command::core::arguments::ParseArgument>::parse(ctx)?;
                 )*
                 #func_name(ctx, #(#param_names),*).await
             }

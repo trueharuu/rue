@@ -1,7 +1,9 @@
 //! Command execution contexts.
 
-use triangle::Client;
-use triangle::classes::room::Room;
+use std::sync::Arc;
+
+use super::traits::User;
+use crate::game::Bot;
 
 /// The execution context passed to a command handler.
 ///
@@ -12,12 +14,12 @@ pub struct Context<'a> {
     args_text: &'a str,
     /// The current offset into the argument text.
     offset: usize,
-    /// The raw [`Chat`] event.
-    event: &'a triangle::types::events::recv::room::Chat,
-    /// The current [`Room`] instance.
-    room: &'a Room,
-    /// The client.
-    client: &'a Client,
+    /// Channel used to send reply messages back to the source.
+    reply_tx: &'a tokio::sync::mpsc::Sender<String>,
+    /// The bot instance the command is running against.
+    pub bot: Arc<Bot>,
+    /// The user who invoked the command.
+    pub user: User,
 }
 
 impl<'a> Context<'a> {
@@ -25,23 +27,25 @@ impl<'a> Context<'a> {
     #[must_use]
     pub fn new(
         args_text: &'a str,
-        event: &'a triangle::types::events::recv::room::Chat,
-        room: &'a Room,
-        client: &'a Client,
+        reply_tx: &'a tokio::sync::mpsc::Sender<String>,
+        bot: Arc<Bot>,
+        user: User,
     ) -> Self {
         Self {
             args_text,
             offset: 0,
-            event,
-            room,
-            client,
+            reply_tx,
+            bot,
+            user,
         }
     }
 
     /// Send a reply message back to the source.
     pub async fn reply(&self, message: &str) -> anyhow::Result<()> {
-        self.room.chat(message).await?;
-        Ok(())
+        self.reply_tx
+            .send(message.to_string())
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to send reply: {e}"))
     }
 
     /// Return the remaining unparsed argument text.

@@ -7,7 +7,9 @@ use super::core::traits::{Category, Restriction};
 use crate::command::core::context::Context;
 use crate::game::Finesse;
 
+/// Absolute minimum pieces per second.
 const PPS_MIN: f64 = 0.5;
+/// Absolute maximum pieces per second.
 const PPS_MAX: f64 = 10.0;
 
 /// Kills the bot (from the room)

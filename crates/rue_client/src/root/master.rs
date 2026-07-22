@@ -1,3 +1,4 @@
+//! Master client logic, which manages child bot instances and handles invites.
 use std::sync::Arc;
 
 use tokio::sync::Mutex;
@@ -19,12 +20,16 @@ use crate::{
   },
 };
 
+/// A global master client that manages child bot instances and handles invites.
 pub struct Master {
+  /// The triangle client used to connect to the server and handle events.
   client: Client,
+  /// All connected children currently in rooms.
   children: Arc<Mutex<Vec<Arc<Bot>>>>,
 }
 
 impl Master {
+  /// Creates a new master client, connecting to the server and setting up event handlers.
   pub async fn new() -> Result<Self, ApiError> {
     let c = Master {
       client: Client::new(ClientOptions {
@@ -49,6 +54,8 @@ impl Master {
     Ok(c)
   }
 
+  /// Initializes the master client, setting its status and registering event handlers for invites,
+  /// DMs, and shutdown events.
   async fn init(&self) {
     self
       .client
@@ -67,11 +74,11 @@ impl Master {
         Err(e) => {
           let message = e.to_string();
           cc.social
-            .dm(invite.sender, format!("Failed to join room: {}", message))
+            .dm(invite.sender, format!("Failed to join room: {message}"))
             .await
             .ok();
         }
-      };
+      }
     });
 
     let client = self.client.clone();

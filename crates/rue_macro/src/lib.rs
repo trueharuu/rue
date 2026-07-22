@@ -3,7 +3,8 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Expr, ExprLit, Ident, ItemFn, Lit, LitStr, Meta, Token, bracketed, parse::{Parse, ParseStream}, parse_macro_input};
+use syn::parse::{Parse, ParseStream};
+use syn::{Expr, ExprLit, Ident, ItemFn, Lit, LitStr, Meta, Token, bracketed, parse_macro_input};
 
 struct CommandAttrs {
     aliases: Vec<String>,
@@ -36,7 +37,7 @@ impl Parse for CommandAttrs {
             } else if ident == "category" {
                 category = Some(input.parse::<syn::Path>()?);
             } else {
-                return Err(syn::Error::new( 
+                return Err(syn::Error::new(
                     ident.span(),
                     "expected `aliases`, `restriction_level`, or `category`",
                 ));
@@ -116,9 +117,10 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     let description = doc_comment_description(&func);
     let aliases = &attrs.aliases;
     let category = &attrs.category;
-    let restriction_level = match &attrs.restriction_level {
-        Some(path) => quote! { #path },
-        None => quote! { Default::default() },
+    let restriction_level = if let Some(path) = &attrs.restriction_level {
+        quote! { #path }
+    } else {
+        quote! { Default::default() }
     };
 
     // Collect parameter names and types (skipping the first `&Context` param).

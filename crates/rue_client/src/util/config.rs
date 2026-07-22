@@ -1,9 +1,13 @@
+//! Configuration for the TETR.IO client, including game handling settings.
 use triangle::types::game::{Buffering, Handling};
 
+/// Configuration for the TETR.IO client, including game handling settings.
 pub struct Config {
+  /// Game handling settings for the client.
   pub handling: Handling,
 }
 
+/// Default configuration for the client.
 pub const CONFIG: Config = Config {
   handling: Handling {
     arr: 0.0,

@@ -3,6 +3,8 @@
 use super::context::Context;
 use async_trait::async_trait;
 
+/// Restriction levels for commands. Higher levels can invoke lower-level commands.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Default)]
 pub enum Restriction {
     #[default]
@@ -12,6 +14,8 @@ pub enum Restriction {
     Dev,
 }
 
+/// Command categories for help text organization.
+#[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 pub enum Category {
     #[default]
@@ -31,9 +35,9 @@ pub struct CommandMetadata {
     pub description: &'static str,
     /// Auto-generated usage string.
     pub usage: &'static str,
-    // todo: doc
+    /// The restriction level required to invoke this command.
     pub restriction_level: Restriction,
-    // todo: doc
+    /// The category this command belongs to, for help text organization.
     pub category: Category,
 }
 

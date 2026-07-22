@@ -1,3 +1,5 @@
+//! Event handling and listener management for the client.
+#![allow(clippy::missing_docs_in_private_items)]
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -9,8 +11,10 @@ use tokio::sync::RwLock;
 
 pub use triangle::utils::events::{AsyncCallback, Event};
 
+/// A unique identifier for an event listener.
 pub type ListenerId = u64;
 
+/// A boxed future that is `Send` and `'static`.
 type BoxFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 struct Listener {
@@ -22,6 +26,7 @@ struct Listener {
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
+/// A global event emitter that allows registering listeners and emitting events.
 #[derive(Clone)]
 pub struct Events {
   listeners: Arc<RwLock<Vec<Listener>>>,
@@ -34,12 +39,15 @@ impl Default for Events {
 }
 
 impl Events {
+  /// Creates a new event emitter.
+  #[must_use]
   pub fn new() -> Self {
     Self {
       listeners: Arc::new(RwLock::new(Vec::new())),
     }
   }
 
+  /// Registers a listener for a specific event type. The callback will be called whenever the event is emitted.
   pub async fn on<T: Event>(
     &self,
     cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
@@ -49,10 +57,13 @@ impl Events {
       .await
   }
 
+  /// Removes a listener by its unique identifier.
   pub async fn off(&self, id: ListenerId) {
     self.listeners.write().await.retain(|l| l.id != id);
   }
 
+  /// Registers a one-time listener for a specific event type.
+  /// The callback will be called only the next time the event is emitted.
   pub async fn once<T: Event>(
     &self,
     cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
@@ -89,6 +100,7 @@ impl Events {
     id
   }
 
+  /// Emits an event to all registered listeners for that event type.
   pub async fn emit<T: Event>(&self, event: T) {
     let data = match serde_json::to_value(&event) {
       Ok(v) => v,
@@ -127,10 +139,13 @@ impl Events {
 
 static EVENTS: OnceLock<Events> = OnceLock::new();
 
+/// Collection of events that can be emitted and listened to globally.
 pub mod msgs {
+  #![allow(missing_docs)]
   triangle::event!(shutdown => Shutdown);
 }
 
+/// Returns a reference to the global event emitter.
 pub fn events() -> &'static Events {
   EVENTS.get_or_init(Events::new)
 }

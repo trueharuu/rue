@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use rue_macro::command;
-
+use std::fmt::Write as _;
 use super::core::traits::{Category, Restriction};
 use crate::command::core::context::Context;
 
@@ -14,6 +14,7 @@ pub async fn ping(ctx: &Context<'_>) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Returns the string name of a command category.
 fn category_name(c: Category) -> &'static str {
     match c {
         Category::Info => "info",
@@ -73,7 +74,6 @@ pub async fn help(ctx: &mut Context<'_>, name: Option<String>) -> anyhow::Result
             .push(entry);
     }
 
-    use std::fmt::Write as _;
 
     let mut out = String::from("Available commands:");
     for (category, mut commands) in by_category {

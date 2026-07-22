@@ -1,13 +1,21 @@
-use triangle::types::game::{Key, tick};
+use rue_core::render;
 use triangle::Engine;
+use triangle::types::game::Key;
+use triangle::types::game::tick;
 
 use rue_nav::pathfinder;
-use rue_search::{SearchConfig, beam_search};
+use rue_search::SearchConfig;
+use rue_search::beam_search;
 
 use crate::bot::state::Finesse;
-use crate::utils::{self, BotMove};
+use crate::utils::BotMove;
+use crate::utils::{self};
 
-use super::{Bot, SEARCH_DEPTH, SEARCH_BEAM_WIDTH, QUEUE_LOOKAHEAD, fill};
+use super::Bot;
+use super::QUEUE_LOOKAHEAD;
+use super::SEARCH_BEAM_WIDTH;
+use super::SEARCH_DEPTH;
+use super::fill;
 
 /// A strictly-increasing frame counter that can represent subframes as tenths of a frame.
 struct FrameCounter(f64);
@@ -317,8 +325,11 @@ impl Bot {
             match beam_search(game, &cfg, &self.weights) {
                 Some(result) => {
                     let mv = result.best.root_move;
+
                     let requires_hold = mv.piece() != game.queue[0];
-                    let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true, false);
+                    let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true, true);
+                    println!("{}", render::render_with(game.board, &mv));
+                    println!("requires_hold: {requires_hold}");
                     game.tick(mv);
 
                     let mut raw = Vec::with_capacity(inputs.0.len() + 1);
@@ -332,9 +343,11 @@ impl Bot {
             }
         };
 
+        println!("attempting: {raw_keys:?}");
         let keys = self
             .process_keys(&raw_keys, &input.engine, opponent_engine.as_ref())
             .await;
+        // println!("got: {keys:?}");
 
         let hd_frame = keys
             .iter()

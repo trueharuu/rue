@@ -2,7 +2,10 @@
 use triangle::engine::queue::bag::BagType;
 use triangle::engine::utils::KickTable;
 use triangle::types::events::recv;
-use triangle::types::game::{GarbageEntry, GarbageTargetBonus, Passthrough, SpinBonuses};
+use triangle::types::game::GarbageEntry;
+use triangle::types::game::GarbageTargetBonus;
+use triangle::types::game::Passthrough;
+use triangle::types::game::SpinBonuses;
 
 /// Result level of a constraint check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

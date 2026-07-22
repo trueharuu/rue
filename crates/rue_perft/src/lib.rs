@@ -15,7 +15,8 @@ use rue_core::board::Board;
 use rue_core::piece::Piece;
 use rue_core::placement::Move;
 use rue_core::rotation::Rotation;
-use rue_core::spin::{Spin, Spins};
+use rue_core::spin::Spin;
+use rue_core::spin::Spins;
 use rue_nav::movegen::generate_inlined;
 
 /// Perft from an empty board over the given piece queue.

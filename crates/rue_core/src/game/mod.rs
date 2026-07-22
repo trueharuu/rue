@@ -5,7 +5,9 @@ pub mod garbage;
 pub mod ruleset;
 
 use crate::board::Board;
-use crate::game::attack::{AttackContext, Clear, b2b_chaining_bonus};
+use crate::game::attack::AttackContext;
+use crate::game::attack::Clear;
+use crate::game::attack::b2b_chaining_bonus;
 use crate::game::garbage::GarbageQueue;
 use crate::game::ruleset::Ruleset;
 use crate::header::WIDTH;

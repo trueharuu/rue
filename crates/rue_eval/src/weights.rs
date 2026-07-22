@@ -27,7 +27,8 @@ pub trait Weights: Sized + Send + Sync {
     /// Unique, time-based hash for weight files.
     #[must_use]
     fn hash() -> String {
-        use std::time::{SystemTime, UNIX_EPOCH};
+        use std::time::SystemTime;
+        use std::time::UNIX_EPOCH;
         let start = SystemTime::now();
         let since_the_epoch = start
             .duration_since(UNIX_EPOCH)

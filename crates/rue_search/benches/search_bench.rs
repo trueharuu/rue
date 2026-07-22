@@ -1,5 +1,7 @@
 #![allow(missing_docs, clippy::missing_docs_in_private_items)]
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
 use rue_core::board::Board;
 use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
@@ -7,7 +9,8 @@ use rue_core::game::ruleset::SEASON_2;
 use rue_core::piece::Piece;
 use rue_core::rng::Rng;
 use rue_eval::simple::Simple;
-use rue_search::{SearchConfig, beam_search};
+use rue_search::SearchConfig;
+use rue_search::beam_search;
 
 const N: usize = 7;
 

@@ -2,14 +2,17 @@
 #![allow(clippy::missing_docs_in_private_items)]
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
+use std::sync::OnceLock;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 use futures::future::join_all;
 use serde_json::Value;
 use tokio::sync::RwLock;
 
-pub use triangle::utils::events::{AsyncCallback, Event};
+pub use triangle::utils::events::AsyncCallback;
+pub use triangle::utils::events::Event;
 
 /// A unique identifier for an event listener.
 pub type ListenerId = u64;
@@ -18,10 +21,10 @@ pub type ListenerId = u64;
 type BoxFuture = Pin<Box<dyn Future<Output = ()> + Send + 'static>>;
 
 struct Listener {
-  id: ListenerId,
-  event: &'static str,
-  cb: Arc<dyn Fn(Value) -> BoxFuture + Send + Sync>,
-  once: bool,
+    id: ListenerId,
+    event: &'static str,
+    cb: Arc<dyn Fn(Value) -> BoxFuture + Send + Sync>,
+    once: bool,
 }
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
@@ -29,123 +32,121 @@ static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 /// A global event emitter that allows registering listeners and emitting events.
 #[derive(Clone)]
 pub struct Events {
-  listeners: Arc<RwLock<Vec<Listener>>>,
+    listeners: Arc<RwLock<Vec<Listener>>>,
 }
 
 impl Default for Events {
-  fn default() -> Self {
-    Self::new()
-  }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Events {
-  /// Creates a new event emitter.
-  #[must_use]
-  pub fn new() -> Self {
-    Self {
-      listeners: Arc::new(RwLock::new(Vec::new())),
+    /// Creates a new event emitter.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            listeners: Arc::new(RwLock::new(Vec::new())),
+        }
     }
-  }
 
-  /// Registers a listener for a specific event type. The callback will be called whenever the event is emitted.
-  pub async fn on<T: Event>(
-    &self,
-    cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
-  ) -> ListenerId {
-    self
-      .add_listener(T::NAME, Self::erase::<T>(cb), false)
-      .await
-  }
+    /// Registers a listener for a specific event type. The callback will be called whenever the event is emitted.
+    pub async fn on<T: Event>(
+        &self,
+        cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
+    ) -> ListenerId {
+        self.add_listener(T::NAME, Self::erase::<T>(cb), false)
+            .await
+    }
 
-  /// Removes a listener by its unique identifier.
-  pub async fn off(&self, id: ListenerId) {
-    self.listeners.write().await.retain(|l| l.id != id);
-  }
+    /// Removes a listener by its unique identifier.
+    pub async fn off(&self, id: ListenerId) {
+        self.listeners.write().await.retain(|l| l.id != id);
+    }
 
-  /// Registers a one-time listener for a specific event type.
-  /// The callback will be called only the next time the event is emitted.
-  pub async fn once<T: Event>(
-    &self,
-    cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
-  ) -> ListenerId {
-    self.add_listener(T::NAME, Self::erase::<T>(cb), true).await
-  }
+    /// Registers a one-time listener for a specific event type.
+    /// The callback will be called only the next time the event is emitted.
+    pub async fn once<T: Event>(
+        &self,
+        cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
+    ) -> ListenerId {
+        self.add_listener(T::NAME, Self::erase::<T>(cb), true).await
+    }
 
-  fn erase<T: Event>(
-    cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
-  ) -> Arc<dyn Fn(Value) -> BoxFuture + Send + Sync> {
-    Arc::new(move |val: Value| -> BoxFuture {
-      match serde_json::from_value::<T>(val) {
-        Ok(event) => Box::pin(cb.clone().call(event)),
-        Err(e) => Box::pin(async move {
-          eprintln!("Failed to parse event {}: {}", T::NAME, e);
-        }),
-      }
-    })
-  }
-
-  async fn add_listener(
-    &self,
-    event: &'static str,
-    cb: Arc<dyn Fn(Value) -> BoxFuture + Send + Sync>,
-    once: bool,
-  ) -> ListenerId {
-    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-    self.listeners.write().await.push(Listener {
-      id,
-      event,
-      cb,
-      once,
-    });
-    id
-  }
-
-  /// Emits an event to all registered listeners for that event type.
-  pub async fn emit<T: Event>(&self, event: T) {
-    let data = match serde_json::to_value(&event) {
-      Ok(v) => v,
-      Err(e) => {
-        eprintln!("Failed to serialize event {}: {}", T::NAME, e);
-        return;
-      }
-    };
-
-    let mut once_ids = Vec::new();
-    let futures: Vec<BoxFuture> = {
-      let listeners = self.listeners.read().await;
-      listeners
-        .iter()
-        .filter(|l| l.event == T::NAME)
-        .map(|l| {
-          if l.once {
-            once_ids.push(l.id);
-          }
-          (l.cb)(data.clone())
+    fn erase<T: Event>(
+        cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
+    ) -> Arc<dyn Fn(Value) -> BoxFuture + Send + Sync> {
+        Arc::new(move |val: Value| -> BoxFuture {
+            match serde_json::from_value::<T>(val) {
+                Ok(event) => Box::pin(cb.clone().call(event)),
+                Err(e) => Box::pin(async move {
+                    eprintln!("Failed to parse event {}: {}", T::NAME, e);
+                }),
+            }
         })
-        .collect()
-    };
-
-    join_all(futures).await;
-
-    if !once_ids.is_empty() {
-      self
-        .listeners
-        .write()
-        .await
-        .retain(|l| !once_ids.contains(&l.id));
     }
-  }
+
+    async fn add_listener(
+        &self,
+        event: &'static str,
+        cb: Arc<dyn Fn(Value) -> BoxFuture + Send + Sync>,
+        once: bool,
+    ) -> ListenerId {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        self.listeners.write().await.push(Listener {
+            id,
+            event,
+            cb,
+            once,
+        });
+        id
+    }
+
+    /// Emits an event to all registered listeners for that event type.
+    pub async fn emit<T: Event>(&self, event: T) {
+        let data = match serde_json::to_value(&event) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to serialize event {}: {}", T::NAME, e);
+                return;
+            }
+        };
+
+        let mut once_ids = Vec::new();
+        let futures: Vec<BoxFuture> = {
+            let listeners = self.listeners.read().await;
+            listeners
+                .iter()
+                .filter(|l| l.event == T::NAME)
+                .map(|l| {
+                    if l.once {
+                        once_ids.push(l.id);
+                    }
+                    (l.cb)(data.clone())
+                })
+                .collect()
+        };
+
+        join_all(futures).await;
+
+        if !once_ids.is_empty() {
+            self.listeners
+                .write()
+                .await
+                .retain(|l| !once_ids.contains(&l.id));
+        }
+    }
 }
 
 static EVENTS: OnceLock<Events> = OnceLock::new();
 
 /// Collection of events that can be emitted and listened to globally.
 pub mod msgs {
-  #![allow(missing_docs)]
-  triangle::event!(shutdown => Shutdown);
+    #![allow(missing_docs)]
+    triangle::event!(shutdown => Shutdown);
 }
 
 /// Returns a reference to the global event emitter.
 pub fn events() -> &'static Events {
-  EVENTS.get_or_init(Events::new)
+    EVENTS.get_or_init(Events::new)
 }

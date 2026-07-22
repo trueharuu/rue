@@ -1,5 +1,6 @@
 //! Module containing the [`Ruleset`] structure and logic.
-use crate::spin::{Spin, Spins};
+use crate::spin::Spin;
+use crate::spin::Spins;
 
 /// A ruleset for any given game.
 #[derive(Clone, Copy, Debug, PartialEq)]

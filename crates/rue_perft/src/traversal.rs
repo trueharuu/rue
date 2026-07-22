@@ -6,10 +6,12 @@
 use rue_core::board::Board;
 use rue_core::piece::Piece;
 use rue_core::spin::Spins;
-use rue_nav::movegen::{count_locks, generate_inlined};
+use rue_nav::movegen::count_locks;
+use rue_nav::movegen::generate_inlined;
 
 use crate::fusion::last_dispatch;
-use crate::height::{band_words, height_after_clear_free};
+use crate::height::band_words;
+use crate::height::height_after_clear_free;
 
 use super::dispatch::perft_rec;
 

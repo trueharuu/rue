@@ -2,8 +2,10 @@
 
 use rue_core::board::Board;
 use rue_core::piece::Piece;
-use rue_core::render::{self, render_with};
-use rue_core::spin::{Spin, Spins};
+use rue_core::render::render_with;
+use rue_core::render::{self};
+use rue_core::spin::Spin;
+use rue_core::spin::Spins;
 use rue_nav::movegen;
 use rue_perft::height::parse_queue;
 use rue_perft::perft_mt;

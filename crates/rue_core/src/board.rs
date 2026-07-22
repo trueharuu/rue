@@ -3,7 +3,14 @@
 use std::cmp::Ordering;
 use std::simd::Simd;
 
-use crate::header::{COL0, COL9, PCELLS, PMASK, TALL, TLINES, WIDTH, dx_mask};
+use crate::header::COL0;
+use crate::header::COL9;
+use crate::header::PCELLS;
+use crate::header::PMASK;
+use crate::header::TALL;
+use crate::header::TLINES;
+use crate::header::WIDTH;
+use crate::header::dx_mask;
 use crate::piece::Piece;
 use crate::placement::Move;
 

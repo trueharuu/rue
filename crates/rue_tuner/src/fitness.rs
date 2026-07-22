@@ -3,12 +3,14 @@
 //! Runs self-play games using a given set of weights and returns mean
 //! back-to-back per bag as a scalar fitness score.
 
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
 use rue_core::board::Board;
 use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
 use rue_core::game::ruleset::SEASON_2;
-use rue_core::rng::{Rng, RngKind};
+use rue_core::rng::Rng;
+use rue_core::rng::RngKind;
 use rue_eval::weights::Weights;
 use rue_search::beam_search;
 

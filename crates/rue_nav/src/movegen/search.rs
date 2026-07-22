@@ -1,13 +1,19 @@
 //! Reachability search for piece placements across translations and SRS kicks.
 
 use crate::buffer::Moves;
-use crate::collision::{landable_map, usable_map};
-use crate::movegen::op::{horizontal_tuck, kick_step, vertical_ceiling};
+use crate::collision::landable_map;
+use crate::collision::usable_map;
+use crate::movegen::op::horizontal_tuck;
+use crate::movegen::op::kick_step;
+use crate::movegen::op::vertical_ceiling;
 use crate::unroll;
 use rue_core::board::Board;
 use rue_core::data::KickTab;
-use rue_core::envelope::{EnvelopeTable, env_probe};
-use rue_core::header::{SPAWN_X, SPAWN_Y, TLINES};
+use rue_core::envelope::EnvelopeTable;
+use rue_core::envelope::env_probe;
+use rue_core::header::SPAWN_X;
+use rue_core::header::SPAWN_Y;
+use rue_core::header::TLINES;
 use rue_core::piece::Piece;
 use rue_core::spin::Spins;
 
@@ -30,6 +36,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
     let mut missing = [Board::<N>::EMPTY; 4];
     let mut search = [Board::<N>::EMPTY; 4];
+    let mut reached_via_rotation = [Board::<N>::EMPTY; 4];
 
     let mut remaining: u32 = 0;
     let mut done: u32;

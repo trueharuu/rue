@@ -41,5 +41,12 @@ pub fn parse_env() {
         .collect();
     let dev_room = std::env::var("DEV_ROOM").ok();
 
-    ENV.set(Env { token, weights, prefix, hosts, dev_room }).ok();
+    ENV.set(Env {
+        token,
+        weights,
+        prefix,
+        hosts,
+        dev_room,
+    })
+    .ok();
 }

@@ -2,10 +2,11 @@
 
 use std::collections::BTreeMap;
 
+use crate::command::context::Context;
+use crate::command::traits::Category;
+use crate::command::traits::Restriction;
 use rue_macro::command;
 use std::fmt::Write as _;
-use crate::command::traits::{Category, Restriction};
-use crate::command::context::Context;
 
 /// Bot health check
 #[command(category = Category::Info)]
@@ -73,7 +74,6 @@ pub async fn help(ctx: &mut Context<'_>, name: Option<String>) -> anyhow::Result
             .or_default()
             .push(entry);
     }
-
 
     let mut out = String::from("Available commands:");
     for (category, mut commands) in by_category {

@@ -7,9 +7,9 @@ mod config;
 mod env;
 mod events;
 mod master;
+mod registry;
 mod settings;
 mod utils;
-mod registry;
 
 #[tokio::main]
 /// Entrypoint.
@@ -22,9 +22,7 @@ pub async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to start master client");
     tokio::signal::ctrl_c().await.ok();
-    events::events()
-        .emit(events::msgs::Shutdown)
-        .await;
+    events::events().emit(events::msgs::Shutdown).await;
 
     Ok(())
 }

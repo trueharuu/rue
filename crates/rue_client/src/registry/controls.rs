@@ -3,9 +3,10 @@
 use rue_macro::command;
 use triangle::types::room::Bracket;
 
-use crate::command::traits::{Category, Restriction};
-use crate::command::context::Context;
 use crate::bot::state::Finesse;
+use crate::command::context::Context;
+use crate::command::traits::Category;
+use crate::command::traits::Restriction;
 
 /// Absolute minimum pieces per second.
 const PPS_MIN: f64 = 0.5;
@@ -171,11 +172,8 @@ pub async fn pps(ctx: &Context<'_>, speed: Option<f64>) -> anyhow::Result<()> {
 pub async fn burst(ctx: &Context<'_>, value: Option<String>) -> anyhow::Result<()> {
     let Some(value) = value else {
         let current = ctx.bot.config.read().await.burst;
-        ctx.reply(&format!(
-            "Burst: {}.",
-            if current { "on" } else { "off" }
-        ))
-        .await?;
+        ctx.reply(&format!("Burst: {}.", if current { "on" } else { "off" }))
+            .await?;
         return Ok(());
     };
 

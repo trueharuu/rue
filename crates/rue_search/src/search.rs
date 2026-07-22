@@ -1,17 +1,21 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use std::time::Instant;
 
 use rue_core::game::Game;
 use rue_core::placement::Move;
 use rue_eval::weights::Weights;
 use rustc_hash::FxHashMap;
 
-use crate::config::{
-    SearchConfig, SearchExpansionContext, SearchIterationParams, SearchNode, SearchResult,
-    SearchResultFull,
-};
+use crate::config::SearchConfig;
+use crate::config::SearchExpansionContext;
+use crate::config::SearchIterationParams;
+use crate::config::SearchNode;
+use crate::config::SearchResult;
+use crate::config::SearchResultFull;
 use rayon::prelude::*;
 
-use crate::expand::{expand_node, expand_root};
+use crate::expand::expand_node;
+use crate::expand::expand_root;
 
 /// Run beam search from a game state.
 ///

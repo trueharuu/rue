@@ -12,11 +12,19 @@ use rue_core::rng::Rng;
 
 use crate::bot::state::GameState;
 use crate::command::context::Context;
-use crate::command::traits::{Restriction, User};
-use crate::events::{events, msgs};
+use crate::command::traits::Restriction;
+use crate::command::traits::User;
+use crate::events::events;
+use crate::events::msgs;
 use crate::settings::ConstraintLevel;
+use crate::utils::FAILURE;
+use crate::utils::WARNING;
 
-use super::{BOT_NAME, Bot, PREFIX, QUEUE_LOOKAHEAD, fill};
+use super::BOT_NAME;
+use super::Bot;
+use super::PREFIX;
+use super::QUEUE_LOOKAHEAD;
+use super::fill;
 
 impl Bot {
     pub(super) async fn bind(self: &Arc<Self>) {
@@ -124,13 +132,6 @@ impl Bot {
             };
 
             let Some(cmd) = b.registry.find(cmd_name) else {
-                if let Some(room) = b.client.room() {
-                    room.chat(&format!(
-                        "Unknown command.\nRun {PREFIX}help for a list of valid commands."
-                    ))
-                    .await
-                    .ok();
-                }
                 return;
             };
 
@@ -139,7 +140,7 @@ impl Bot {
             if user.level < meta.restriction_level || user.level < restriction {
                 if let Some(room) = b.client.room() {
                     room.chat(&format!(
-                        "{BOT_NAME}'s commands are currently restricted to {restriction:?}."
+                        "{FAILURE} commands are currently restricted to {restriction:?}"
                     ))
                     .await
                     .ok();
@@ -176,7 +177,14 @@ impl Bot {
                 if data.players.iter().any(|p| p.0 == b.client.user.id)
                     && let Some(room) = b.client.room()
                 {
-                    room.chat("glhf!").await.ok();
+                    let pickable = ['g', 'l', 'h', 'f'];
+                    let mut rng = Rng::new();
+                    let mut glhf = String::new();
+                    for _ in 0..18 {
+                        let idx = (rng.next() as usize) % pickable.len();
+                        glhf.push(pickable[idx]);
+                    }
+                    room.chat(&format!("gl{glhf}")).await.ok();
                 }
             });
 
@@ -195,7 +203,7 @@ impl Bot {
                 b.client.game().unwrap().me.unwrap().set_pause_iges(true);
 
                 if !matches!(engine.queue.kind, BagType::Bag7) {
-                    eprintln!("Unsupported bag type: {:?}", engine.queue.kind);
+                    eprintln!("unsupported bag type: {:?}", engine.queue.kind);
                     return;
                 }
 
@@ -203,6 +211,8 @@ impl Bot {
                     let mut rng = Rng::new_seeded(engine.queue.seed as i32);
                     let mut queue = Vec::new();
                     fill(&mut queue, &mut rng, QUEUE_LOOKAHEAD.div_ceil(7).max(1));
+                    println!("{:?}", engine.queue.as_slice());
+                    println!("{queue:?}");
 
                     let mut game = b.game.lock().await;
                     *game = Game {
@@ -254,8 +264,12 @@ impl Bot {
             if let Some(room) = self.client.room() {
                 for output in &result.outputs {
                     room.chat(&format!(
-                        "{}: {}",
-                        output.level.to_string().to_uppercase(),
+                        "{} {}",
+                        match output.level {
+                            ConstraintLevel::Error => FAILURE,
+                            ConstraintLevel::Warning => WARNING,
+                            ConstraintLevel::Info | ConstraintLevel::Change => "",
+                        },
                         output.message
                     ))
                     .await
@@ -284,7 +298,9 @@ impl Bot {
                             .map(|x| x.fix.clone())
                             .collect::<Vec<_>>()
                             .join(";")
-                    ));
+                    ))
+                    .await
+                    .unwrap();
                 }
 
                 return;

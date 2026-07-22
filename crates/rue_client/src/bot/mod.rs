@@ -7,35 +7,41 @@
 
 mod bind;
 mod burst;
-mod tick;
 pub mod state;
+mod tick;
 
 use std::fmt;
 use std::sync::Arc;
 
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
+use triangle::Client;
+use triangle::ClientOptions;
 use triangle::classes::ribbon;
 use triangle::types::events::recv;
 use triangle::utils::EventEmitter;
 use triangle::utils::api::core::ApiError;
 use triangle::utils::events::WrapError;
-use triangle::{Client, ClientOptions};
 
 use rue_core::board::Board;
 use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
 use rue_core::game::ruleset::SEASON_2;
 use rue_core::piece::Piece;
-use rue_core::rng::{Rng, RngKind};
+use rue_core::rng::Rng;
+use rue_core::rng::RngKind;
 use rue_eval::simple::Simple;
 
-use crate::bot::state::{Config, EnabledState, Finesse, State};
+use crate::bot::state::Config;
+use crate::bot::state::EnabledState;
+use crate::bot::state::Finesse;
+use crate::bot::state::State;
 use crate::command::registry::Registry;
 use crate::command::traits::Restriction;
-use crate::registry::{self};
 use crate::config::CONFIG;
 use crate::env::env;
+use crate::registry::{self};
 use crate::settings::SettingsHandler;
 
 /// Number of 6-row bands backing the live game board (42 rows).
@@ -61,8 +67,6 @@ pub enum Target {
     Join(String),
     Create,
 }
-
-
 
 /// The bot struct, containing the game state, configuration, client, and event handling.
 pub struct Bot {

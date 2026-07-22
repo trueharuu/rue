@@ -51,3 +51,7 @@ pub fn move_to_key(m: BotMove) -> Key {
         BotMove::Path(Input::RotateFlip) => Key::Rotate180,
     }
 }
+
+pub const SUCCESS: &str = "✅";
+pub const FAILURE: &str = "❌";
+pub const WARNING: &str = "⚠️";

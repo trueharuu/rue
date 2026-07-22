@@ -11,7 +11,8 @@ use rue_core::game::ruleset::SEASON_2;
 use rue_core::piece::Piece;
 use rue_core::placement::Move;
 use rue_core::render::render_with;
-use rue_core::rng::{Rng, RngKind};
+use rue_core::rng::Rng;
+use rue_core::rng::RngKind;
 use rue_eval::simple::Simple;
 use rue_eval::weights::Weights;
 
@@ -151,9 +152,7 @@ pub fn main() {
             f64::from(total_attack) / f64::from(pieces),
             f64::from(chain_b2b) / (f64::from(chain_pieces) / 7.0)
         );
-        page.comment = Some(format!(
-            "{score:.3}"
-        ));
+        page.comment = Some(format!("{score:.3}"));
         // clear run_output.txt
         std::fs::write("run.txt", fu.encode()).expect("failed to write fumen to run.txt");
         // break;
@@ -186,7 +185,8 @@ fn fill(p: &mut Vec<Piece>, r: &mut Rng, n: usize) {
     }
 }
 use rue_nav::pathfinder;
-use rue_search::{SearchConfig, beam_search};
+use rue_search::SearchConfig;
+use rue_search::beam_search;
 
 /// The best placement at any given time.
 #[must_use]

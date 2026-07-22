@@ -3,8 +3,18 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
-use syn::{Expr, ExprLit, Ident, ItemFn, Lit, LitStr, Meta, Token, bracketed, parse_macro_input};
+use syn::Expr;
+use syn::ExprLit;
+use syn::Ident;
+use syn::ItemFn;
+use syn::Lit;
+use syn::LitStr;
+use syn::Meta;
+use syn::Token;
+use syn::bracketed;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
 
 struct CommandAttrs {
     aliases: Vec<String>,

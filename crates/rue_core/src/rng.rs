@@ -55,7 +55,8 @@ impl Rng {
 
     /// Advances the randomiser state.
     pub const fn next(&mut self) -> i32 {
-        self.seed = self.seed.wrapping_mul(16807) % 2_147_483_647;
+        // fuck javascript
+        self.seed = (self.seed as f64 * 16807.0 % 2_147_483_647.0) as i32;
         self.seed
     }
 

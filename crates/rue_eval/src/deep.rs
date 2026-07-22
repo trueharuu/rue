@@ -1,10 +1,17 @@
 //! Neural-network evaluation model, with CNN and auxiliary inputs.
 #![allow(missing_docs, clippy::missing_docs_in_private_items)]
 
-use candle_core::{DType, Device, Tensor};
-use candle_nn::{
-    BatchNorm, BatchNormConfig, Conv2d, Conv2dConfig, Linear, Module, ModuleT, VarBuilder,
-};
+use candle_core::DType;
+use candle_core::Device;
+use candle_core::Tensor;
+use candle_nn::BatchNorm;
+use candle_nn::BatchNormConfig;
+use candle_nn::Conv2d;
+use candle_nn::Conv2dConfig;
+use candle_nn::Linear;
+use candle_nn::Module;
+use candle_nn::ModuleT;
+use candle_nn::VarBuilder;
 use rue_core::game::Game;
 use rue_core::game::attack::AttackContext;
 use rue_core::history::History;

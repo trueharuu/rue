@@ -10,7 +10,9 @@ use rustc_hash::FxHashMap;
 
 use rayon::prelude::*;
 
-use crate::config::{SearchConfig, SearchExpansionContext, SearchNode};
+use crate::config::SearchConfig;
+use crate::config::SearchExpansionContext;
+use crate::config::SearchNode;
 
 /// Generate all root-level nodes by applying each legal placement.
 pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(

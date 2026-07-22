@@ -13,11 +13,9 @@ use triangle::{
 };
 
 use crate::{
-  game::{Bot, Target},
-  util::{
-    env::env,
-    events::{events, msgs},
-  },
+  bot::{Bot, Target},
+  env::env,
+  events::{events, msgs},
 };
 
 /// A global master client that manages child bot instances and handles invites.

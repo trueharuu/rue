@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use super::traits::User;
-use crate::game::Bot;
+use crate::bot::Bot;
 
 /// The execution context passed to a command handler.
 ///

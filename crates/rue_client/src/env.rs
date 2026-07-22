@@ -7,6 +7,12 @@ pub struct Env {
     pub token: String,
     /// Path to the weights file.
     pub weights: String,
+    /// Current bot prefix.
+    pub prefix: String,
+    /// List of bot hosts, who have elevated permissions for managing the bot.
+    pub hosts: Vec<String>,
+    /// Development room ID, if any. Rue will instantly join this room upon startup.
+    pub dev_room: Option<String>,
 }
 
 /// Default weights path, resolved from the source tree at compile time so it
@@ -26,6 +32,14 @@ pub fn env() -> &'static Env {
 pub fn parse_env() {
     let token = std::env::var("TOKEN").expect("TOKEN must be set in .env");
     let weights = std::env::var("WEIGHTS").unwrap_or_else(|_| DEFAULT_WEIGHTS.to_string());
+    let prefix = std::env::var("PREFIX").unwrap_or_else(|_| "!".to_string());
+    let hosts = std::env::var("HOSTS")
+        .unwrap_or_else(|_| String::new())
+        .split(',')
+        .filter(|s| !s.is_empty())
+        .map(std::string::ToString::to_string)
+        .collect();
+    let dev_room = std::env::var("DEV_ROOM").ok();
 
-    ENV.set(Env { token, weights }).ok();
+    ENV.set(Env { token, weights, prefix, hosts, dev_room }).ok();
 }

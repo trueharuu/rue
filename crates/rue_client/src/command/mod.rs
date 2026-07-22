@@ -1,5 +1,6 @@
 //! Command handling, registry, and argument parsing for the client.
 
-pub mod controls;
-pub mod core;
-pub mod info;
+pub mod arguments;
+pub mod context;
+pub mod registry;
+pub mod traits;

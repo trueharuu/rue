@@ -1,3 +1,5 @@
+//! Utility functions for the Rue client.
+
 use rue_core::rng::Rng;
 use rue_nav::pathfinder::Input;
 use triangle::types::game::Key;

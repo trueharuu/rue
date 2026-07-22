@@ -4,7 +4,7 @@ use super::context::Context;
 use async_trait::async_trait;
 
 /// Restriction levels for commands. Higher levels can invoke lower-level commands.
-#[allow(missing_docs)]
+#[allow(missing_docs, clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash, Default)]
 pub enum Restriction {
     #[default]
@@ -15,7 +15,7 @@ pub enum Restriction {
 }
 
 /// Command categories for help text organization.
-#[allow(missing_docs)]
+#[allow(missing_docs, clippy::missing_docs_in_private_items)]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
 pub enum Category {
     #[default]

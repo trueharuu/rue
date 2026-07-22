@@ -156,7 +156,7 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         quote! {
             Box::leak(
-                vec![#(<#param_types as crate::command::core::arguments::ParseArgument>::label()),*]
+                vec![#(<#param_types as crate::command::arguments::ParseArgument>::label()),*]
                     .into_iter()
                     .map(|s| format!("<{s}>"))
                     .collect::<Vec<_>>()
@@ -171,11 +171,11 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub struct #struct_name;
 
         #[async_trait::async_trait]
-        impl crate::command::core::traits::Command for #struct_name {
-            fn metadata(&self) -> &'static crate::command::core::traits::CommandMetadata {
+        impl crate::command::traits::Command for #struct_name {
+            fn metadata(&self) -> &'static crate::command::traits::CommandMetadata {
                 use std::sync::OnceLock;
-                static META: OnceLock<crate::command::core::traits::CommandMetadata> = OnceLock::new();
-                META.get_or_init(|| crate::command::core::traits::CommandMetadata {
+                static META: OnceLock<crate::command::traits::CommandMetadata> = OnceLock::new();
+                META.get_or_init(|| crate::command::traits::CommandMetadata {
                     name: #cmd_name,
                     aliases: &[#(#aliases),*],
                     description: #description,
@@ -187,11 +187,11 @@ pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             async fn execute(
                 &self,
-                ctx: &mut crate::command::core::context::Context<'_>,
+                ctx: &mut crate::command::context::Context<'_>,
             ) -> anyhow::Result<()> {
                 #(
                     let #param_names =
-                        <#param_types as crate::command::core::arguments::ParseArgument>::parse(ctx)?;
+                        <#param_types as crate::command::arguments::ParseArgument>::parse(ctx)?;
                 )*
                 #func_name(ctx, #(#param_names),*).await
             }

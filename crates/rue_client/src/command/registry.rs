@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::command::core::traits::Command;
+use crate::command::traits::Command;
 
 /// A registry that maps command names and aliases to their handlers.
 pub struct Registry {

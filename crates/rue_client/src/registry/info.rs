@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 
 use rue_macro::command;
 use std::fmt::Write as _;
-use super::core::traits::{Category, Restriction};
-use crate::command::core::context::Context;
+use crate::command::traits::{Category, Restriction};
+use crate::command::context::Context;
 
 /// Bot health check
 #[command(category = Category::Info)]
@@ -83,7 +83,7 @@ pub async fn help(ctx: &mut Context<'_>, name: Option<String>) -> anyhow::Result
             "\n{}{}:\n  {}",
             category[..1].to_uppercase(),
             &category[1..],
-            commands.join(" | ")
+            commands.join(", ")
         );
     }
 

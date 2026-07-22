@@ -3,9 +3,9 @@
 use rue_macro::command;
 use triangle::types::room::Bracket;
 
-use super::core::traits::{Category, Restriction};
-use crate::command::core::context::Context;
-use crate::game::Finesse;
+use crate::command::traits::{Category, Restriction};
+use crate::command::context::Context;
+use crate::bot::state::Finesse;
 
 /// Absolute minimum pieces per second.
 const PPS_MIN: f64 = 0.5;

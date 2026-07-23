@@ -22,7 +22,7 @@ use super::dispatch::perft_rec;
 #[inline]
 pub fn leaf<const P: Piece, const N: usize>(b: &Board<8>, h: i32) -> u64 {
     let b1: Board<N> = b.cast();
-    u64::from(count_locks::<P, N>(&b1, h, 0))
+    u64::from(count_locks::<P, N>(&b1, h, 0, false))
 }
 
 /// Apply one lock for piece `P`, cast to width `M`, and recurse to the next depth.
@@ -63,7 +63,7 @@ pub fn inner<const P: Piece, const N: usize>(
     h: i32,
 ) -> u64 {
     let b1: Board<N> = b.cast();
-    let ml = generate_inlined::<P, { Spins::None }, N>(&b1, h, 0);
+    let ml = generate_inlined::<P, { Spins::None }, N>(&b1, h, 0, false);
     let h2w = band_words(h + P.h_place());
     let rest = &q[1..];
 

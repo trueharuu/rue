@@ -76,3 +76,20 @@ macro_rules! unroll {
         }
     }};
 }
+
+/// Drops a piece down until it collides with `usable` cells, returning the final resting position.
+#[must_use]
+#[inline]
+pub fn sonic_drop<const N: usize>(s: Board<N>, usable: &Board<N>) -> Board<N> {
+    let mut result = Board::<N>::EMPTY;
+    let mut current = s;
+    loop {
+        let below = current.shifted(0, -1) & *usable;
+        let moved = current & below.shifted(0, 1);
+        let landed = current & !moved;
+        result |= landed;
+        current = below;
+        if !current.any() { break; }
+    }
+    result
+}

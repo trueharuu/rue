@@ -18,7 +18,11 @@ All crates use `edition = "2024"` and `#![feature(portable_simd, min_adt_const_p
 | Solo (offline play) | `cargo run -p rue_solo -- --load weights/simple.json -n 500` |
 | Perft (move-gen perf) | `cargo run -p rue_perft` |
 
-There is no CI. Run clippy + fmt + test before committing.
+There is no CI. Run clippy + fmt + test before committing. For any change that occurs in movegen (`rue_nav::movegen`) should be personally tested with `rue_perft`:
+```sh
+cargo run --release -- IOLJSZT
+```
+Assert that this value is equal to exactly **2647076135**.
 
 ## Workspace Layout
 

@@ -69,7 +69,7 @@ pub fn perft_mt(queue: &[Piece]) -> u64 {
 /// Cold path: runs once per work-list ply, so plain full-band ops suffice.
 fn collect_children(b: &Board<8>, h: i32, p: Piece, out: &mut Vec<(Board<8>, i32)>) {
     fn go<const P: Piece>(b: &Board<8>, h: i32, out: &mut Vec<(Board<8>, i32)>) {
-        let ml = generate_inlined::<P, { Spins::None }, 8>(b, h, 0);
+        let ml = generate_inlined::<P, { Spins::None }, 8>(b, h, 0, false);
         let mut rc = 0;
         while rc < P.canonical_rotations() {
             ml.none[rc].for_each_set_bit(|x, y| {

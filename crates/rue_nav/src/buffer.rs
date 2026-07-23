@@ -35,6 +35,8 @@ pub struct Moves<const N: usize> {
     pub via_rotation: [Board<N>; 4],
     /// Landed positions discovered by the 5th rotation kick.
     pub via_5th_kick: [Board<N>; 4],
+    /// All immobile positions.
+    pub immobile: [Board<N>; 4],
 }
 
 impl<const N: usize> Moves<N> {
@@ -52,6 +54,7 @@ impl<const N: usize> Moves<N> {
             front2: [Board::EMPTY; 4],
             via_5th_kick: [Board::EMPTY; 4],
             via_rotation: [Board::EMPTY; 4],
+            immobile: [Board::EMPTY; 4],
         }
     }
 

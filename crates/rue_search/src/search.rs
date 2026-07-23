@@ -401,6 +401,8 @@ mod tests {
             well_col: [0.0; 10],
             well_depth: 0.0,
             garbage: 0.0,
+            tsd_overhangs: 0.0,
+            waste: [0.0; Piece::NB],
         }
     }
 

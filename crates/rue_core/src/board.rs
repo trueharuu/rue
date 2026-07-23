@@ -24,6 +24,20 @@ impl<const N: usize> Board<N> {
     /// Height of the board in rows for this band count.
     pub const H: i32 = TLINES * N as i32;
 
+    /// Raw access to the underlying SIMD vector.
+    #[inline]
+    #[must_use]
+    pub fn vector(&self) -> &Simd<u64, N> {
+        &self.0
+    }
+
+    /// Create a new board from a raw SIMD vector.
+    #[inline]
+    #[must_use]
+    pub fn from_vector(v: Simd<u64, N>) -> Self {
+        Self(v)
+    }
+
     /// Inserts `lines` garbage rows onto the bottom of the board, shifting existing content up.
     /// Each garbage row has all columns filled except column `gap`.
     #[inline]
@@ -143,6 +157,19 @@ impl<const N: usize> Board<N> {
         let mut i = 0;
         while i < Self::H {
             b.set(x, i);
+            i += 1;
+        }
+        b
+    }
+
+    #[inline]
+    #[must_use]
+    /// Builds a board where every column has row `y` set.
+    pub fn row_mask(y: i32) -> Self {
+        let mut b = Self::EMPTY;
+        let mut i = 0;
+        while i < WIDTH {
+            b.set(i, y);
             i += 1;
         }
         b

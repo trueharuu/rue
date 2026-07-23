@@ -13,6 +13,23 @@ use crate::spin::Spin;
 pub struct Move(u32);
 
 impl Move {
+    /// Returns the raw 32-bit representation of the move.
+    #[must_use]
+    #[inline]
+    pub const fn raw(&self) -> u32 {
+        self.0
+    }
+
+    /// Creates a move from a raw 32-bit representation.
+    ///
+    /// # Safety
+    /// The raw value must be a valid move representation, typically achieved from [`Move::raw`].
+    #[must_use]
+    pub const unsafe fn from_raw(raw: u32) -> Self {
+        Self(raw)
+    }
+
+    #[inline]
     #[must_use]
     /// Packs move fields into a compact 32-bit representation.
     pub const fn new(piece: Piece, rotation: Rotation, x: i32, y: i32, spin: Spin) -> Self {
@@ -25,12 +42,14 @@ impl Move {
         )
     }
 
+    #[inline]
     #[must_use]
     /// Decodes the piece component.
     pub const fn piece(&self) -> Piece {
         Piece::from_u8((self.0 >> 29) as u8).unwrap()
     }
 
+    #[inline]
     #[must_use]
     /// Decodes the rotation component.
     pub const fn rotation(&self) -> Rotation {
@@ -42,18 +61,21 @@ impl Move {
         }
     }
 
+    #[inline]
     #[must_use]
     /// Decodes the x-coordinate component.
     pub const fn x(&self) -> i32 {
         ((self.0 >> 23) & 0xF) as i32
     }
 
+    #[inline]
     #[must_use]
     /// Decodes the y-coordinate component.
     pub const fn y(&self) -> i32 {
         ((self.0 >> 15) & 0xFF) as i32
     }
 
+    #[inline]
     #[must_use]
     /// Decodes the spin classification component.
     pub const fn spin(&self) -> Spin {
@@ -65,6 +87,7 @@ impl Move {
         }
     }
 
+    #[inline]
     #[must_use]
     /// Expands the placement into four absolute board cells.
     pub const fn cells(&self) -> [(i32, i32); 4] {

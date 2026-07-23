@@ -153,3 +153,59 @@ pub fn row_transitions<const N: usize>(board: &Board<N>, max_height: usize) -> i
     }
     total
 }
+
+/// Returns the number of T-Spin overhangs in the board,
+/// defined as a filled cell with an empty cell directly below it, and a wall on one side and a cavity on the other side.
+#[inline]
+#[must_use]
+pub fn tsd_overhangs<const N: usize>(board: &Board<N>, heights: &[usize; WIDTH as usize]) -> i32 {
+    let cols = board.as_cols();
+    let mut count = 0i32;
+
+    for c in 0..WIDTH as usize {
+        let h = heights[c];
+        if h < 2 {
+            continue;
+        }
+
+        let top_bit = 1u64 << (h - 1);
+        let cavity_bit = 1u64 << (h - 2);
+        let col = cols[c];
+
+        // Overhang: filled at top, empty directly below
+        let has_overhang = (col & top_bit) != 0 && (col & cavity_bit) == 0;
+
+        if !has_overhang {
+            continue;
+        }
+
+        // Check for wall on either side providing the T-slot
+        let wall_left = c > 0
+            && heights[c - 1] >= h
+            && (cols[c - 1] & top_bit) != 0
+            && (cols[c - 1] & cavity_bit) != 0;
+
+        let wall_right = c < WIDTH as usize - 1
+            && heights[c + 1] >= h
+            && (cols[c + 1] & top_bit) != 0
+            && (cols[c + 1] & cavity_bit) != 0;
+
+        // Need cavity on the opposite side of the wall
+        if wall_left {
+            let open_right = c < WIDTH as usize - 1 && (cols[c + 1] & cavity_bit) == 0;
+            let open_right = open_right || c == WIDTH as usize - 1;
+            if open_right {
+                count += 1;
+            }
+        }
+        if wall_right {
+            let open_left = c > 0 && (cols[c - 1] & cavity_bit) == 0;
+            let open_left = open_left || c == 0;
+            if open_left {
+                count += 1;
+            }
+        }
+    }
+
+    count.min(2)
+}

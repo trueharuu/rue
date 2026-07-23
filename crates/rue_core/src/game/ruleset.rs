@@ -63,6 +63,12 @@ pub struct Ruleset {
     pub garbage_cap: u32,
     /// Max amount of garbage, total
     pub garbage_absolute_cap: u32,
+    /// Whether to use SRS+ (TETR.IO) kick tables instead of standard SRS.
+    pub srs_plus: bool,
+    /// Whether to enable 180-degree rotation.
+    pub use_180: bool,
+    /// Whether to use infinite SDF for move generation.
+    pub inf_sdf: bool,
 }
 
 impl Ruleset {
@@ -119,7 +125,7 @@ pub enum ComboTable {
 
 /// The currently active rule set for TETR.IO Tetra League Season 2.
 pub const SEASON_2: Ruleset = Ruleset {
-    spins: Spins::AllPlus,
+    spins: Spins::AllMini,
     single: 0,
     double: 1,
     triple: 2,
@@ -148,4 +154,7 @@ pub const SEASON_2: Ruleset = Ruleset {
     garbage_clear_bonus: 0,
     garbage_cap: 8,
     garbage_absolute_cap: u32::MAX,
+    srs_plus: true,
+    use_180: true,
+    inf_sdf: true,
 };

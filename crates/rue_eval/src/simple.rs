@@ -1,6 +1,8 @@
 //! Simple weights as a baseline comparison.
 use rue_core::game::Game;
 use rue_core::game::attack::AttackContext;
+use rue_core::piece::Piece;
+use rue_core::spin::Spin;
 
 use crate::features::{self};
 use crate::weights::Weights;
@@ -40,6 +42,10 @@ pub struct Simple {
     pub well_col: [f64; 10],
     /// Total depth of the highest well
     pub well_depth: f64,
+    /// Total number of T-Spin overhangs
+    pub tsd_overhangs: f64,
+    /// Whether a piece is wasted (non-spin/quad clear)
+    pub waste: [f64; Piece::NB],
 }
 
 impl Weights for Simple {
@@ -90,7 +96,17 @@ impl Weights for Simple {
         score += self.garbage * f64::from(game.garbage_queue.total());
 
         score += self.pc * f64::from(!game.board.any());
+        score += self.tsd_overhangs * f64::from(features::tsd_overhangs(&game.board, &heights));
 
+        // a piece is not waste if
+        // its a spin clear with >0 lines cleared
+        // or if exactly 4 lines cleared (quad clear)
+        let is_waste = !((ctx.placement.spin() != Spin::None && ctx.lines_cleared > 0)
+            || ctx.lines_cleared == 4);
+
+        if is_waste {
+            score += self.waste[ctx.placement.piece() as usize];
+        }
         score
     }
 }

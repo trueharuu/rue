@@ -14,6 +14,7 @@ use rue_core::envelope::env_probe;
 use rue_core::header::SPAWN_X;
 use rue_core::header::SPAWN_Y;
 use rue_core::header::TLINES;
+use rue_core::header::WIDTH;
 use rue_core::piece::Piece;
 use rue_core::spin::Spins;
 
@@ -26,6 +27,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
     b: &Board<N>,
     y: i32,
     force: i32,
+    sonic: bool,
 ) -> (Moves<N>, u32) {
     let h: i32 = TLINES * N as i32;
     let cs = P.canonical_rotations();
@@ -34,9 +36,51 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
 
     let usable = usable_map::<P, N>(b);
 
+    // Pre-compute T-spin corner masks (Cobra's `spins` and `spinMap`).
+    let (has3, front2_arr): (Board<N>, [Board<N>; 4]) = if const { P as u8 == 0 && SPINS as u8 != 0 }
+    {
+        let wall_left = Board::<N>::col_mask(0);
+        let wall_right = Board::<N>::col_mask(9);
+        let mut wall_bottom = Board::<N>::EMPTY;
+        let mut wall_top = Board::<N>::EMPTY;
+        {
+            let mut x = 0i32;
+            while x < WIDTH {
+                wall_bottom.set(x, 0);
+                wall_top.set(x, Board::<N>::H - 1);
+                x += 1;
+            }
+        }
+        let corner_tl = b.shifted(1, 1) | wall_left | wall_bottom;
+        let corner_tr = b.shifted(-1, 1) | wall_right | wall_bottom;
+        let corner_bl = b.shifted(1, -1) | wall_left | wall_top;
+        let corner_br = b.shifted(-1, -1) | wall_right | wall_top;
+        let has3 = (corner_tl & corner_tr & corner_bl)
+            | (corner_tl & corner_tr & corner_br)
+            | (corner_tl & corner_bl & corner_br)
+            | (corner_tr & corner_bl & corner_br);
+        let front2_arr = [
+            corner_bl & corner_br,
+            corner_tr & corner_br,
+            corner_tl & corner_tr,
+            corner_tl & corner_bl,
+        ];
+        (has3, front2_arr)
+    } else {
+        (Board::<N>::EMPTY, [Board::<N>::EMPTY; 4])
+    };
+
     let mut missing = [Board::<N>::EMPTY; 4];
     let mut search = [Board::<N>::EMPTY; 4];
     let mut reached_via_rotation = [Board::<N>::EMPTY; 4];
+    let mut reached_via_5th_kick = [Board::<N>::EMPTY; 4];
+
+    let mut reached_by_translation = [Board::<N>::EMPTY; 4];
+
+    // Cobra's `spinReach[NONE | MINI | FULL]` — accumulated during BFS.
+    let mut spin_reach_none = [Board::<N>::EMPTY; 4];
+    let mut spin_reach_mini = [Board::<N>::EMPTY; 4];
+    let mut spin_reach_full = [Board::<N>::EMPTY; 4];
 
     let mut remaining: u32 = 0;
     let mut done: u32;
@@ -48,33 +92,64 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 let cands = landable_map(&usable, cs);
                 let mut moves = Moves::empty(P);
 
+                moves.landed = cands;
+
                 unroll!(r, cs, {
                     let landable = cands[r] & !missing[r];
-                    let immobile = if SPINS.has_immobile() {
-                        landable
-                            & !usable[r].shifted(0, -1)
-                            & !usable[r].shifted(0, 1)
-                            & !usable[r].shifted(-1, 0)
-                            & !usable[r].shifted(1, 0)
-                    } else {
-                        Board::<N>::EMPTY
-                    };
+                    let immobile = landable
+                        & !usable[r].shifted(0, -1)
+                        & !usable[r].shifted(0, 1)
+                        & !usable[r].shifted(-1, 0)
+                        & !usable[r].shifted(1, 0);
+                    moves.immobile[r] = immobile;
 
-                    // todo: 3-corner t-spin detection
-                    match SPINS {
-                        Spins::None => {
-                            moves.none[r] = landable;
+                    let mut via_rot = Board::<N>::EMPTY;
+                    let mut via_5th = Board::<N>::EMPTY;
+                    unroll!(srs, 4, {
+                        if const { P.canonical_rotation(srs) } == r {
+                            via_rot |= reached_via_rotation[srs];
+                            via_5th |= reached_via_5th_kick[srs];
                         }
-                        Spins::T => {
-                            moves.none[r] = landable;
+                    });
+                    moves.via_rotation[r] = via_rot & landable;
+                    moves.via_5th_kick[r] = via_5th & landable;
+
+                    moves.has3[r] = has3 & landable;
+                    moves.front2[r] = front2_arr[r] & landable;
+
+                    if const { P as u8 == 0 } {
+                        match SPINS {
+                            Spins::None => {
+                                moves.none[r] = landable;
+                            }
+                            Spins::T | Spins::AllMini | Spins::AllPlus => {
+                                // Cobra: moves[s][rs] = candidates[rs] & spinReach[s][rs]
+                                moves.full[r] = spin_reach_full[r] & landable;
+                                let mini_immobile = if const { SPINS as u8 == 1 } {
+                                    Board::<N>::EMPTY
+                                } else {
+                                    via_rot & immobile & !(has3 & landable)
+                                };
+                                moves.mini[r] = (spin_reach_mini[r] & landable) | mini_immobile;
+                                moves.none[r] = spin_reach_none[r]
+                                    & !spin_reach_mini[r]
+                                    & !spin_reach_full[r]
+                                    & landable;
+                            }
                         }
-                        Spins::AllMini => {
-                            moves.none[r] = landable & !immobile;
-                            moves.mini[r] = immobile
-                        }
-                        Spins::AllPlus => {
-                            moves.none[r] = landable & !immobile;
-                            moves.full[r] = immobile;
+                    } else {
+                        match SPINS {
+                            Spins::None | Spins::T => {
+                                moves.none[r] = landable;
+                            }
+                            Spins::AllMini => {
+                                moves.none[r] = reached_by_translation[r] & landable;
+                                moves.mini[r] = immobile;
+                            }
+                            Spins::AllPlus => {
+                                moves.none[r] = reached_by_translation[r] & landable;
+                                moves.full[r] = immobile;
+                            }
                         }
                     }
                 });
@@ -128,6 +203,10 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 }
             });
             if remaining == 0 {
+                unroll!(r, cs, {
+                    reached_by_translation[r] = search[r];
+                    spin_reach_none[r] = search[r];
+                });
                 finish!();
             }
 
@@ -154,6 +233,10 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 }
             });
             if remaining == 0 {
+                unroll!(r, cs, {
+                    reached_by_translation[r] = search[r];
+                    spin_reach_none[r] = search[r];
+                });
                 finish!();
             }
             if P.group2() {
@@ -163,6 +246,12 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
             done = 0;
         }
     }
+
+    // Save translation-reachable positions before BFS adds rotation-kick paths.
+    unroll!(r, cs, {
+        reached_by_translation[r] = search[r];
+        spin_reach_none[r] = search[r];
+    });
 
     // BFS over nominal rotations with masked first-valid-kick waves.
     let mut unsearched = [Board::<N>::EMPTY; 4];
@@ -192,7 +281,23 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 let mut result = Board::<N>::EMPTY;
                 kick_step::<P, $d, $r, $kick_idx, N>(&mut temp, &mut result, &usable[r1c]);
 
+                // Cobra spin reach: classify kick result into NONE / MINI / FULL.
+                if const { P as u8 == 0 && SPINS as u8 != 0 } {
+                    let spun = result & has3;
+                    spin_reach_none[r1] |= result & !has3;
+                    if const { $kick_idx >= 4 } {
+                        spin_reach_full[r1] |= spun;
+                    } else {
+                        spin_reach_mini[r1] |= spun & !front2_arr[r1];
+                        spin_reach_full[r1] |= spun & front2_arr[r1];
+                    }
+                }
+
                 let res = result & unsearched[r1];
+                reached_via_rotation[r1] |= result & usable[r1c];
+                if const { $kick_idx == 4 } {
+                    reached_via_5th_kick[r1] |= result & usable[r1c];
+                }
                 if res.any() {
                     search[r1] |= res;
                     unsearched[r1] &= !res;
@@ -216,10 +321,12 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 let rc = const { P.canonical_rotation($r) };
 
                 loop {
-                    let temp = (search[$r].shifted(-1, 0)
+                    let temp_all = search[$r].shifted(-1, 0)
                         | search[$r].shifted(1, 0)
-                        | search[$r].shifted(0, -1))
-                        & unsearched[$r];
+                        | search[$r].shifted(0, -1);
+                    // Cobra: spinReach[NONE][r] |= temp (before unsearched filter)
+                    spin_reach_none[$r] |= temp_all;
+                    let temp = temp_all & unsearched[$r];
 
                     if !temp.any() {
                         break;
@@ -270,6 +377,21 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
         process_rot!(2);
         process_rot!(3);
     }
+
+    // Expand translation reachability by gravity (same as process_rot but using usable).
+    unroll!(r, cs, {
+        loop {
+            let new = (reached_by_translation[r].shifted(-1, 0)
+                | reached_by_translation[r].shifted(1, 0)
+                | reached_by_translation[r].shifted(0, -1))
+                & usable[r]
+                & !reached_by_translation[r];
+            if !new.any() {
+                break;
+            }
+            reached_by_translation[r] |= new;
+        }
+    });
 
     finish!();
 }

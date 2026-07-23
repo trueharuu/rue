@@ -13,6 +13,7 @@ use rue_core::placement::Move;
 use rue_core::render::render_with;
 use rue_core::rng::Rng;
 use rue_core::rng::RngKind;
+use rue_core::spin::Spins;
 use rue_eval::simple::Simple;
 use rue_eval::weights::Weights;
 
@@ -60,7 +61,7 @@ pub fn main() {
         ruleset: SEASON_2,
         rng: Rng::new(),
     };
-    // game.ruleset.spins = Spins::T;
+    game.ruleset.spins = Spins::AllMini;
 
     let mut fu = Fumen::default();
 
@@ -70,14 +71,19 @@ pub fn main() {
     let mut chain_pieces = 0u32;
     let mut chain_b2b = 0u32;
     let i_total = Instant::now();
+    let mut i_since_last = Instant::now();
+    // game.garbage_queue.recieve(1, u32::MAX);
     loop {
         if let Some(n) = cli.n
             && pieces >= n as u32
         {
             break;
         }
-        if pieces.is_multiple_of(14) {
-            // game.garbage_queue.recieve(4, u32::MAX);
+        if i_since_last.elapsed().as_secs() >= 4 {
+            game.garbage_queue.recieve(4, u32::MAX);
+            game.garbage_queue.recieve(4, u32::MAX);
+
+            i_since_last = Instant::now();
         }
         let instant = Instant::now();
         let best = best_placement(&game, &model, &cli);
@@ -89,10 +95,9 @@ pub fn main() {
 
         let (best, score) = best.unwrap();
         println!("{}", render_with(game.board, &best));
-        println!(
-            "{:?}",
-            pathfinder::get_input(&game.board, best, &game.ruleset, true, false)
-        );
+        let input = pathfinder::get_input(&game.board, best, &game.ruleset, true);
+        assert!(!input.0.is_empty(), "can't actually do it");
+        println!("{input:?}");
         let page = fu.add_page();
         for fy in 0..23 {
             for fx in 0..10 {
@@ -145,12 +150,13 @@ pub fn main() {
         );
         println!("choosable active pieces: {active:?}");
         println!(
-            "n={pieces} b2b={:?} combo={:?} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3}",
+            "n={pieces} b2b={:?} combo={:?} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3} apm={:.3}",
             game.b2b_count,
             game.combo_count,
             f64::from(pieces) / i_total.elapsed().as_secs_f64(),
             f64::from(total_attack) / f64::from(pieces),
-            f64::from(chain_b2b) / (f64::from(chain_pieces) / 7.0)
+            f64::from(chain_b2b) / (f64::from(chain_pieces) / 7.0),
+            f64::from(total_attack) / i_total.elapsed().as_secs_f64() * 60.0
         );
         page.comment = Some(format!("{score:.3}"));
         // clear run_output.txt
@@ -186,7 +192,7 @@ fn fill(p: &mut Vec<Piece>, r: &mut Rng, n: usize) {
 }
 use rue_nav::pathfinder;
 use rue_search::SearchConfig;
-use rue_search::beam_search;
+use rue_search::beam_search_with_scores;
 
 /// The best placement at any given time.
 #[must_use]
@@ -203,6 +209,25 @@ pub fn best_placement<const N: usize>(
         ..SearchConfig::default()
     };
 
-    let result = beam_search(game, &cfg, model);
-    result.map(|x| (x.best.root_move, x.best.score))
+    let result = beam_search_with_scores(game, &cfg, model)?;
+    println!("{}", result.root_scores.len());
+    for &(mv, score) in &result.root_scores {
+        let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true);
+        if inputs.0.is_empty() {
+            println!("failed to get finesse for: {mv:?}");
+            println!("{}", render_with(game.board, &mv));
+            println!("dump:");
+            println!(
+                "let board = Board::from_vector({:?}.into());",
+                game.board.vector()
+            );
+            println!("let mv = unsafe {{ Move::from_raw({}) }};", mv.raw());
+            println!("let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);");
+            println!("assert!(!inputs.0.is_empty());");
+        }
+        if !inputs.0.is_empty() {
+            return Some((mv, score));
+        }
+    }
+    None
 }

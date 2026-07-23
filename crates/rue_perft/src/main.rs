@@ -1,12 +1,13 @@
 //! Binary entrypoint for the [`rue_nav`] performance test.
 
 use rue_core::board::Board;
+use rue_core::game::ruleset::Ruleset;
+use rue_core::game::ruleset::SEASON_2;
 use rue_core::piece::Piece;
 use rue_core::render::render_with;
-use rue_core::render::{self};
-use rue_core::spin::Spin;
 use rue_core::spin::Spins;
 use rue_nav::movegen;
+use rue_nav::pathfinder;
 use rue_perft::height::parse_queue;
 use rue_perft::perft_mt;
 use std::time::Instant;
@@ -29,26 +30,44 @@ pub fn main() {
     );
 
     #[allow(clippy::items_after_statements)]
-    const P: Piece = Piece::T;
+    const P: Piece = Piece::O;
     let mut b = Board::<2>::EMPTY;
     b.set_many(&[
-        (0, 0),
-        (0, 1),
-        (0, 2),
-        (0, 3),
-        (2, 0),
-        (3, 0),
-        (3, 1),
-        (1, 4),
-        (2, 2),
-        (3, 2),
+        (0,0),(0,3),
     ]);
-    let m = movegen::generate_inlined::<{ P }, { Spins::AllMini }, 2>(&b, 20, 0);
-    for p in m.iter().filter(|x| x.spin() == Spin::Full) {
+    let m = movegen::generate_inlined::<{ P }, { Spins::AllMini }, 2>(&b, 20, 0, true);
+    for p in m.iter() {
+        // println!("{p:?}");
         println!("{}", render_with(b, &p));
+        println!("{:?}", pathfinder::get_input(&b, p, &SEASON_2, true));
     }
 
-    println!("{}", render::merge(b, m.via_rotation[1]));
+    // // mini
+    // println!(
+    //     "{}",
+    //     render::merge(
+    //         b,
+    //         m.has3[1] & m.via_rotation[1] & m.landed[1] & !m.front2[1] & !m.via_5th_kick[1]
+    //     )
+    // );
+    // // mini, upgraded to full because 5th kick
+    // println!(
+    //     "{}",
+    //     render::merge(
+    //         b,
+    //         m.has3[1] & m.via_rotation[1] & m.landed[1] & !m.front2[1] & m.via_5th_kick[1]
+    //     )
+    // );
+    // // full
+    // println!(
+    //     "{}",
+    //     render::merge(b, m.has3[1] & m.via_rotation[1] & m.landed[1] & m.front2[1])
+    // );
+    // // immobile. there are not spins in Spins::T/Spins::None, but are Spin::Mini in AllMini/AllPlus.
+    // println!(
+    //     "{}",
+    //     render::merge(b, m.via_rotation[1] & m.landed[1] & m.immobile[1])
+    // );
 }
 
 /// Format a number with K/M/B suffixes for thousands/millions/billions.

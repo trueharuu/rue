@@ -327,7 +327,7 @@ impl Bot {
                     let mv = result.best.root_move;
 
                     let requires_hold = mv.piece() != game.queue[0];
-                    let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true, true);
+                    let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true);
                     println!("{}", render::render_with(game.board, &mv));
                     println!("requires_hold: {requires_hold}");
                     game.tick(mv);

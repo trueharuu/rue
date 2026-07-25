@@ -328,7 +328,8 @@ impl Bot {
                     let mv = result.best.root_move;
 
                     let requires_hold = mv.piece() != game.queue[0];
-                    let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv, true);
+                    let inputs =
+                        pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv, true);
                     println!("{}", render::render_with(game.board, &mv));
                     println!("requires_hold: {requires_hold}");
                     game.tick(mv);

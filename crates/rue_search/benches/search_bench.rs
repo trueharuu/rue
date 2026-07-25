@@ -6,6 +6,7 @@ use rue_core::board::Board;
 use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
 use rue_core::game::ruleset::SEASON_2;
+use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::piece::Piece;
 use rue_core::rng::Rng;
 use rue_eval::simple::Simple;
@@ -68,7 +69,7 @@ fn bench_early_game(c: &mut Criterion) {
     let weights = zero_weights();
 
     c.bench_function("beam_search_early_d14_w800", |b| {
-        b.iter(|| beam_search(&game, &config, &weights));
+        b.iter(|| beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights));
     });
 }
 
@@ -98,7 +99,7 @@ fn bench_mid_game(c: &mut Criterion) {
     let weights = zero_weights();
 
     c.bench_function("beam_search_mid_d8_w400", |b| {
-        b.iter(|| beam_search(&game, &config, &weights));
+        b.iter(|| beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights));
     });
 }
 
@@ -120,7 +121,7 @@ fn bench_shallow(c: &mut Criterion) {
     let weights = zero_weights();
 
     c.bench_function("beam_search_shallow_d4_w800", |b| {
-        b.iter(|| beam_search(&game, &config, &weights));
+        b.iter(|| beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights));
     });
 }
 

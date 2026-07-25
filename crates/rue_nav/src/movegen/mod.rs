@@ -2,9 +2,7 @@
 
 use rue_core::board::Board;
 use rue_core::game::ruleset::Handling;
-use rue_core::game::ruleset::Ruleset;
 use rue_core::piece::Piece;
-use rue_core::spin::Spins;
 
 use crate::buffer::Moves;
 use crate::movegen::search::gen_impl;
@@ -48,7 +46,6 @@ pub fn generate<const N: usize, const RULE: Handling>(
         Piece::O => generate_inlined::<{ Piece::O }, { RULE }, _>(b, y, force),
         Piece::S => generate_inlined::<{ Piece::S }, { RULE }, _>(b, y, force),
         Piece::Z => generate_inlined::<{ Piece::Z }, { RULE }, _>(b, y, force),
-        
     }
 }
 

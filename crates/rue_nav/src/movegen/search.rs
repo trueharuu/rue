@@ -9,6 +9,7 @@ use crate::movegen::op::vertical_ceiling;
 use crate::unroll;
 use rue_core::board::Board;
 use rue_core::data::KickTab;
+use rue_core::data::kick_row_const;
 use rue_core::envelope::EnvelopeTable;
 use rue_core::envelope::env_probe;
 use rue_core::game::ruleset::Handling;
@@ -19,6 +20,7 @@ use rue_core::header::WIDTH;
 use rue_core::piece::Piece;
 use rue_core::spin::Spins;
 
+#[allow(clippy::similar_names)]
 #[must_use]
 /// Generates reachable/landable placements for piece `P` on board `b`.
 ///
@@ -37,9 +39,7 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
     let usable = usable_map::<P, N>(b);
 
     // Pre-compute T-spin corner masks (Cobra's `spins` and `spinMap`).
-    let (has3, front2_arr): (Board<N>, [Board<N>; 4]) = if const {
-        P as u8 == 0 && RULE.spins as u8 != 0
-    }
+    let (has3, front2_arr): (Board<N>, [Board<N>; 4]) = if const { P as u8 == 0 && RULE.spins as u8 != 0 }
     {
         let wall_left = Board::<N>::col_mask(0);
         let wall_right = Board::<N>::col_mask(9);
@@ -266,22 +266,32 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
             let r1 = const { KickTab::<P, $d, $r>::R1 };
             let r1c = const { KickTab::<P, $d, $r>::R1C };
             if $probe.any() {
+                let off_x = KickTab::<P, $d, $r>::OFF_X;
+                let off_y = KickTab::<P, $d, $r>::OFF_Y;
+                let kick_row = kick_row_const(P, $d, $r, RULE.srs_plus);
                 let mut temp = search[$r];
                 let mut prior = Board::<N>::EMPTY;
                 if $kick_idx >= 1 {
-                    kick_step::<P, $d, $r, 0, N>(&mut temp, &mut prior, &usable[r1c]);
+                    kick_step::<0, N>(&mut temp, &mut prior, &usable[r1c], &kick_row, off_x, off_y);
                 }
                 if $kick_idx >= 2 {
-                    kick_step::<P, $d, $r, 1, N>(&mut temp, &mut prior, &usable[r1c]);
+                    kick_step::<1, N>(&mut temp, &mut prior, &usable[r1c], &kick_row, off_x, off_y);
                 }
                 if $kick_idx >= 3 {
-                    kick_step::<P, $d, $r, 2, N>(&mut temp, &mut prior, &usable[r1c]);
+                    kick_step::<2, N>(&mut temp, &mut prior, &usable[r1c], &kick_row, off_x, off_y);
                 }
                 if $kick_idx >= 4 {
-                    kick_step::<P, $d, $r, 3, N>(&mut temp, &mut prior, &usable[r1c]);
+                    kick_step::<3, N>(&mut temp, &mut prior, &usable[r1c], &kick_row, off_x, off_y);
                 }
                 let mut result = Board::<N>::EMPTY;
-                kick_step::<P, $d, $r, $kick_idx, N>(&mut temp, &mut result, &usable[r1c]);
+                kick_step::<$kick_idx, N>(
+                    &mut temp,
+                    &mut result,
+                    &usable[r1c],
+                    &kick_row,
+                    off_x,
+                    off_y,
+                );
 
                 // Cobra spin reach: classify kick result into NONE / MINI / FULL.
                 if const { P as u8 == 0 && RULE.spins as u8 != 0 } {

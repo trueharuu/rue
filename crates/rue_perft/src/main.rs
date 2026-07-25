@@ -56,7 +56,10 @@ pub fn main() {
     for p in m.iter() {
         // println!("{p:?}");
         println!("{}", render_with(b, &p));
-        println!("{:?}", pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&b, p, true));
+        println!(
+            "{:?}",
+            pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&b, p, true)
+        );
     }
 
     // // mini

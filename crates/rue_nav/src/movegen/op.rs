@@ -1,18 +1,20 @@
 //! Low-level move-generation operators used by the search routine.
 
 use rue_core::board::Board;
-use rue_core::data::KickTab;
-use rue_core::piece::Piece;
+use rue_core::data::K5;
 
 #[inline]
 /// Applies one kick candidate in-place, accumulating translated hits into `result`.
-pub fn kick_step<const P: Piece, const D: usize, const R: usize, const I: usize, const N: usize>(
+pub fn kick_step<const I: usize, const N: usize>(
     temp: &mut Board<N>,
     result: &mut Board<N>,
     usable_r1c: &Board<N>,
+    kick_row: &K5,
+    off_x: i32,
+    off_y: i32,
 ) {
-    let kx = i32::from(KickTab::<P, D, R>::ROW[I].0) + KickTab::<P, D, R>::OFF_X;
-    let ky = i32::from(KickTab::<P, D, R>::ROW[I].1) + KickTab::<P, D, R>::OFF_Y;
+    let kx = i32::from(kick_row[I].0) + off_x;
+    let ky = i32::from(kick_row[I].1) + off_y;
     *result |= temp.shifted(kx, ky);
 
     if I != 4 {
@@ -67,7 +69,6 @@ pub fn sonic_drop<const N: usize>(mut s: Board<N>, usable: &Board<N>) -> Board<N
     }
     s
 }
-
 
 #[macro_export]
 /// Unrolls a compile-time rotation index loop for values `0..4` with a runtime limit.

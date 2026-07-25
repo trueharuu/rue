@@ -361,7 +361,8 @@ fn apply_futility_pruning<const N: usize>(
 mod tests {
     use rue_core::board::Board;
     use rue_core::game::garbage::GarbageQueue;
-    use rue_core::game::ruleset::{SEASON_2, SEASON_2_HANDLING};
+    use rue_core::game::ruleset::SEASON_2;
+    use rue_core::game::ruleset::SEASON_2_HANDLING;
     use rue_core::piece::Piece;
 
     use rue_core::rng::Rng;
@@ -559,7 +560,8 @@ mod tests {
         };
         let weights = zero_weights();
 
-        let result = beam_search_with_scores::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights);
+        let result =
+            beam_search_with_scores::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights);
         assert!(result.is_some());
         let res = result.unwrap();
 

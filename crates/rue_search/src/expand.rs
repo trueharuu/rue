@@ -24,12 +24,7 @@ pub(crate) fn expand_root<const N: usize, const RULE: Handling, W: Weights + Syn
         return Vec::new();
     }
 
-    let moves_a = movegen::generate::<_, RULE>(
-        &game.board,
-        game.queue[0],
-        game.board.max_y(),
-        0
-    );
+    let moves_a = movegen::generate::<_, RULE>(&game.board, game.queue[0], game.board.max_y(), 0);
 
     let moves_b = if game.hold.is_some() || game.queue.len() >= 2 {
         let second = game.hold.unwrap_or_else(|| game.queue[1]);
@@ -104,12 +99,7 @@ pub(crate) fn expand_node<const N: usize, const RULE: Handling, W: Weights + Syn
         if second == current_piece {
             Moves::empty(second)
         } else {
-            movegen::generate::<_, RULE>(
-                &parent.game.board,
-                second,
-                parent.game.board.max_y(),
-                0,
-            )
+            movegen::generate::<_, RULE>(&parent.game.board, second, parent.game.board.max_y(), 0)
         }
     } else {
         Moves::empty(current_piece)

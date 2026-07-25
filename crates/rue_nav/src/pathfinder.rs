@@ -7,6 +7,7 @@ use std::collections::VecDeque;
 use rue_core::board::Board;
 use rue_core::data::KICKS_I;
 use rue_core::data::KICKS_I_180;
+use rue_core::data::KICKS_I_TETRIO;
 use rue_core::data::KICKS_LJSZT;
 use rue_core::data::KICKS_LJSZT_180;
 use rue_core::data::KICKS_LJSZT_180_JSTRIS;
@@ -305,7 +306,11 @@ pub fn get_input_impl<const P: Piece, const RULE: Handling, const N: usize>(
                 let off_y = P.canonical_offset(r as usize).1 - P.canonical_offset(rt as usize).1;
 
                 let kicks = if matches!(P, Piece::I) {
-                    KICKS_I
+                    if RULE.srs_plus {
+                        KICKS_I_TETRIO
+                    } else {
+                        KICKS_I
+                    }
                 } else {
                     KICKS_LJSZT
                 };
@@ -497,7 +502,7 @@ pub fn get_input_impl<const P: Piece, const RULE: Handling, const N: usize>(
 mod tests {
     use crate::pathfinder;
     use rue_core::board::Board;
-    use rue_core::game::ruleset::{SEASON_2_HANDLING};
+    use rue_core::game::ruleset::SEASON_2_HANDLING;
     use rue_core::placement::Move;
 
     // failed because couldn't 180 inplace? i think?

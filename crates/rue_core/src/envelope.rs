@@ -13,7 +13,7 @@ pub const fn env_union(p: Piece, r: usize) -> (i32, i32, i32, i32) {
         let r1 = if d == 0 { (r + 1) & 3 } else { (r + 3) & 3 };
         let off_x = p.canonical_offset(r).0 - p.canonical_offset(r1).0;
         let off_y = p.canonical_offset(r).1 - p.canonical_offset(r1).1;
-        let row = kick_row_const(p, d, r);
+        let row = kick_row_const(p, d, r, false);
         let mut i = 0;
         while i < 5 {
             let kx = row[i].0 as i32 + off_x;

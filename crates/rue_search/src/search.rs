@@ -2,6 +2,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use rue_core::game::Game;
+use rue_core::game::ruleset::Handling;
 use rue_core::placement::Move;
 use rue_eval::weights::Weights;
 use rustc_hash::FxHashMap;
@@ -20,21 +21,21 @@ use crate::expand::expand_root;
 /// Run beam search from a game state.
 ///
 /// Returns `None` when no legal move exists.
-pub fn beam_search<const N: usize, W: Weights + Sync>(
+pub fn beam_search<const N: usize, const RULE: Handling, W: Weights + Sync>(
     game: &Game<N>,
     config: &SearchConfig,
     weights: &W,
 ) -> Option<SearchResult<N>> {
-    beam_search_forced(game, config, weights, None).map(|full| full.best)
+    beam_search_forced::<_, RULE, _>(game, config, weights, None).map(|full| full.best)
 }
 
 /// Run beam search returning full results including per-root-move scores.
-pub fn beam_search_with_scores<const N: usize, W: Weights + Sync>(
+pub fn beam_search_with_scores<const N: usize, const RULE: Handling, W: Weights + Sync>(
     game: &Game<N>,
     config: &SearchConfig,
     weights: &W,
 ) -> Option<SearchResultFull<N>> {
-    beam_search_forced(game, config, weights, None)
+    beam_search_forced::<_, RULE, _>(game, config, weights, None)
 }
 
 /// Run beam search with optional forced root move.
@@ -42,7 +43,7 @@ pub fn beam_search_with_scores<const N: usize, W: Weights + Sync>(
 /// When `forced` is `Some`, that move is protected from futility pruning
 /// and beam truncation — it always survives to the final beam so its score
 /// appears in `root_scores`.
-pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
+pub fn beam_search_forced<const N: usize, const RULE: Handling, W: Weights + Sync>(
     game: &Game<N>,
     config: &SearchConfig,
     weights: &W,
@@ -68,7 +69,7 @@ pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
             tt: &mut tt,
             forced_root_move: forced,
         };
-        return run_beam_search_iteration(params);
+        return run_beam_search_iteration::<_, RULE, _>(params);
     }
 
     let max_width = config.beam_width;
@@ -106,7 +107,7 @@ pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
             forced_root_move: forced,
         };
 
-        if let Some(full) = run_beam_search_iteration(params) {
+        if let Some(full) = run_beam_search_iteration::<_, RULE, _>(params) {
             let should_replace = best_full
                 .as_ref()
                 .is_none_or(|prev| full.best.best.score > prev.best.best.score);
@@ -129,7 +130,7 @@ pub fn beam_search_forced<const N: usize, W: Weights + Sync>(
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
+fn run_beam_search_iteration<const N: usize, const RULE: Handling, W: Weights + Sync>(
     params: SearchIterationParams<'_, W, N>,
 ) -> Option<SearchResultFull<N>> {
     let mut ctx = SearchExpansionContext {
@@ -139,7 +140,7 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
         tt: params.tt,
     };
 
-    let mut beam = expand_root(params.game, &mut ctx);
+    let mut beam = expand_root::<_, RULE, _>(params.game, &mut ctx);
     if beam.is_empty() {
         return None;
     }
@@ -171,7 +172,7 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
                     tt: &mut local_tt,
                 };
                 let mut out = Vec::new();
-                expand_node(node, &mut local_ctx, &mut out);
+                expand_node::<_, RULE, _>(node, &mut local_ctx, &mut out);
                 out
             })
             .collect();
@@ -224,7 +225,7 @@ fn run_beam_search_iteration<const N: usize, W: Weights + Sync>(
                             tt: &mut local_tt,
                         };
                         let mut out = Vec::new();
-                        expand_node(node, &mut local_ctx, &mut out);
+                        expand_node::<_, RULE, _>(node, &mut local_ctx, &mut out);
                         out
                     })
                     .collect();
@@ -360,7 +361,7 @@ fn apply_futility_pruning<const N: usize>(
 mod tests {
     use rue_core::board::Board;
     use rue_core::game::garbage::GarbageQueue;
-    use rue_core::game::ruleset::SEASON_2;
+    use rue_core::game::ruleset::{SEASON_2, SEASON_2_HANDLING};
     use rue_core::piece::Piece;
 
     use rue_core::rng::Rng;
@@ -412,7 +413,7 @@ mod tests {
         let config = SearchConfig::default();
         let weights = zero_weights();
 
-        let result = beam_search(&game, &config, &weights);
+        let result = beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights);
         assert!(result.is_some(), "should find a move on empty board");
         let res = result.unwrap();
         assert!(
@@ -431,7 +432,7 @@ mod tests {
         };
         let weights = zero_weights();
 
-        let result = beam_search(&game, &config, &weights);
+        let result = beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights);
         assert!(result.is_some(), "depth-1 should find a move");
         assert_eq!(
             result.unwrap().best.path.len(),
@@ -450,7 +451,7 @@ mod tests {
         };
         let weights = zero_weights();
 
-        let result = beam_search(&game, &narrow, &weights);
+        let result = beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &narrow, &weights);
         assert!(result.is_some(), "narrow beam should still find something");
     }
 
@@ -544,7 +545,7 @@ mod tests {
         let config = SearchConfig::default();
         let weights = zero_weights();
 
-        let result = beam_search(&game, &config, &weights);
+        let result = beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights);
         assert!(result.is_none(), "full board should have no legal moves");
     }
 
@@ -558,7 +559,7 @@ mod tests {
         };
         let weights = zero_weights();
 
-        let result = beam_search_with_scores(&game, &config, &weights);
+        let result = beam_search_with_scores::<_, { SEASON_2_HANDLING }, _>(&game, &config, &weights);
         assert!(result.is_some());
         let res = result.unwrap();
 

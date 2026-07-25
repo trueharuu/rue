@@ -5,10 +5,10 @@
 
 use rue_core::board::Board;
 use rue_core::piece::Piece;
-use rue_core::spin::Spins;
 use rue_nav::movegen::count_locks;
 use rue_nav::movegen::generate_inlined;
 
+use crate::PERFT_HANDLING;
 use crate::fusion::last_dispatch;
 use crate::height::band_words;
 use crate::height::height_after_clear_free;
@@ -22,7 +22,7 @@ use super::dispatch::perft_rec;
 #[inline]
 pub fn leaf<const P: Piece, const N: usize>(b: &Board<8>, h: i32) -> u64 {
     let b1: Board<N> = b.cast();
-    u64::from(count_locks::<P, N>(&b1, h, 0, false))
+    u64::from(count_locks::<P, { PERFT_HANDLING }, N>(&b1, h, 0))
 }
 
 /// Apply one lock for piece `P`, cast to width `M`, and recurse to the next depth.
@@ -63,7 +63,7 @@ pub fn inner<const P: Piece, const N: usize>(
     h: i32,
 ) -> u64 {
     let b1: Board<N> = b.cast();
-    let ml = generate_inlined::<P, { Spins::None }, N>(&b1, h, 0, false);
+    let ml = generate_inlined::<P, { PERFT_HANDLING }, N>(&b1, h, 0);
     let h2w = band_words(h + P.h_place());
     let rest = &q[1..];
 

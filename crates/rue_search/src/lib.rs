@@ -1,5 +1,6 @@
 //! Beam search engine for Rue.
 
+#![feature(min_adt_const_params)]
 #![allow(missing_docs)]
 #![allow(clippy::missing_docs_in_private_items)]
 

@@ -8,12 +8,12 @@ use rue_core::board::Board;
 use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
 use rue_core::game::ruleset::SEASON_2;
+use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::piece::Piece;
 use rue_core::placement::Move;
 use rue_core::render::render_with;
 use rue_core::rng::Rng;
 use rue_core::rng::RngKind;
-use rue_core::spin::Spins;
 use rue_eval::simple::Simple;
 use rue_eval::weights::Weights;
 
@@ -61,7 +61,6 @@ pub fn main() {
         ruleset: SEASON_2,
         rng: Rng::new(),
     };
-    game.ruleset.spins = Spins::AllMini;
 
     let mut fu = Fumen::default();
 
@@ -95,7 +94,7 @@ pub fn main() {
 
         let (best, score) = best.unwrap();
         println!("{}", render_with(game.board, &best));
-        let input = pathfinder::get_input(&game.board, best, &game.ruleset, true);
+        let input = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, best, true);
         assert!(!input.0.is_empty(), "can't actually do it");
         println!("{input:?}");
         let page = fu.add_page();
@@ -209,10 +208,10 @@ pub fn best_placement<const N: usize>(
         ..SearchConfig::default()
     };
 
-    let result = beam_search_with_scores(game, &cfg, model)?;
+    let result = beam_search_with_scores::<_, { SEASON_2_HANDLING }, _>(game, &cfg, model)?;
     println!("{}", result.root_scores.len());
     for &(mv, score) in &result.root_scores {
-        let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv, true);
         if inputs.0.is_empty() {
             println!("failed to get finesse for: {mv:?}");
             println!("{}", render_with(game.board, &mv));

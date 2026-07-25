@@ -1,12 +1,24 @@
 //! Module containing the [`Ruleset`] structure and logic.
 use crate::spin::Spin;
 use crate::spin::Spins;
+use std::marker::ConstParamTy;
+/// Global move-generation settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ConstParamTy)]
+pub struct Handling {
+    /// Whether to use infinite SDF for move generation.
+    pub inf_sdf: bool,
+    /// Whether to use SRS+ kick tables instead of standard SRS.
+    pub srs_plus: bool,
+    /// Whether to enable 180-degree rotation.
+    pub use_180: bool,
+    /// Spin allowance policy.
+    pub spins: Spins,
+}
 
 /// A ruleset for any given game.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Ruleset {
-    /// The spins allowed in this ruleset.
-    pub spins: Spins,
     /// Attack sent for a single.
     pub single: u32,
     /// Attack sent for a double.
@@ -63,12 +75,8 @@ pub struct Ruleset {
     pub garbage_cap: u32,
     /// Max amount of garbage, total
     pub garbage_absolute_cap: u32,
-    /// Whether to use SRS+ (TETR.IO) kick tables instead of standard SRS.
-    pub srs_plus: bool,
-    /// Whether to enable 180-degree rotation.
-    pub use_180: bool,
-    /// Whether to use infinite SDF for move generation.
-    pub inf_sdf: bool,
+    /// Global handling rules.
+    pub handling: Handling,
 }
 
 impl Ruleset {
@@ -123,9 +131,16 @@ pub enum ComboTable {
     Multiplier,
 }
 
+/// The currently active handling for TETR.IO Tetra League Season 2.
+pub const SEASON_2_HANDLING: Handling = Handling {
+    inf_sdf: true,
+    srs_plus: true,
+    use_180: true,
+    spins: Spins::AllMini,
+};
+
 /// The currently active rule set for TETR.IO Tetra League Season 2.
 pub const SEASON_2: Ruleset = Ruleset {
-    spins: Spins::AllMini,
     single: 0,
     double: 1,
     triple: 2,
@@ -154,7 +169,5 @@ pub const SEASON_2: Ruleset = Ruleset {
     garbage_clear_bonus: 0,
     garbage_cap: 8,
     garbage_absolute_cap: u32::MAX,
-    srs_plus: true,
-    use_180: true,
-    inf_sdf: true,
+    handling: SEASON_2_HANDLING,
 };

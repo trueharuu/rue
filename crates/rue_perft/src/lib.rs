@@ -12,12 +12,21 @@ mod traversal;
 
 pub use dispatch::perft_rec;
 use rue_core::board::Board;
+use rue_core::game::ruleset::Handling;
 use rue_core::piece::Piece;
 use rue_core::placement::Move;
 use rue_core::rotation::Rotation;
 use rue_core::spin::Spin;
 use rue_core::spin::Spins;
 use rue_nav::movegen::generate_inlined;
+
+/// Handling ruleset for the performance test.
+pub const PERFT_HANDLING: Handling = Handling {
+    inf_sdf: false,
+    srs_plus: false,
+    use_180: false,
+    spins: Spins::None,
+};
 
 /// Perft from an empty board over the given piece queue.
 ///
@@ -69,7 +78,7 @@ pub fn perft_mt(queue: &[Piece]) -> u64 {
 /// Cold path: runs once per work-list ply, so plain full-band ops suffice.
 fn collect_children(b: &Board<8>, h: i32, p: Piece, out: &mut Vec<(Board<8>, i32)>) {
     fn go<const P: Piece>(b: &Board<8>, h: i32, out: &mut Vec<(Board<8>, i32)>) {
-        let ml = generate_inlined::<P, { Spins::None }, 8>(b, h, 0, false);
+        let ml = generate_inlined::<P, { PERFT_HANDLING }, 8>(b, h, 0);
         let mut rc = 0;
         while rc < P.canonical_rotations() {
             ml.none[rc].for_each_set_bit(|x, y| {

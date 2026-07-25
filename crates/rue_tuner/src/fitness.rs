@@ -9,6 +9,7 @@ use rue_core::board::Board;
 use rue_core::game::Game;
 use rue_core::game::garbage::GarbageQueue;
 use rue_core::game::ruleset::SEASON_2;
+use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::rng::Rng;
 use rue_core::rng::RngKind;
 use rue_eval::weights::Weights;
@@ -53,7 +54,7 @@ pub fn single_game<const N: usize, W: Weights>(
     let mut pieces = 0_usize;
 
     while pieces < config.pieces {
-        let best = beam_search(&game, &cfg, weights);
+        let best = beam_search::<_, { SEASON_2_HANDLING }, _>(&game, &cfg, weights);
         let Some(result) = best else {
             // immediately increment pieces to the max with 0 additional b2b
             pieces = config.pieces;

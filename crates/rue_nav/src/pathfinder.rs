@@ -10,6 +10,7 @@ use rue_core::data::KICKS_I_180;
 use rue_core::data::KICKS_LJSZT;
 use rue_core::data::KICKS_LJSZT_180;
 use rue_core::data::KICKS_LJSZT_180_JSTRIS;
+use rue_core::game::ruleset::Handling;
 use rue_core::header::PCELLS;
 use rue_core::header::SPAWN_X;
 use rue_core::header::SPAWN_Y;
@@ -20,8 +21,6 @@ use rue_core::rotation::Rotation;
 use rue_core::spin::Spin;
 use rue_core::spin::Spins;
 use smallvec::SmallVec;
-
-use rue_core::game::ruleset::Ruleset;
 
 /// An individual controller input in a path sequence.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -200,33 +199,31 @@ fn classify_spin<const N: usize>(
 /// Returns an empty sequence if the target is unreachable.
 #[must_use]
 #[inline]
-pub fn get_input<const N: usize>(
+pub fn get_input<const N: usize, const RULE: Handling>(
     board: &Board<N>,
     target: Move,
-    ruleset: &Ruleset,
     finesse: bool,
 ) -> Inputs {
     match target.piece() {
-        Piece::T => get_input_impl::<{ Piece::T }, N>(board, target, ruleset, finesse),
-        Piece::I => get_input_impl::<{ Piece::I }, N>(board, target, ruleset, finesse),
-        Piece::O => get_input_impl::<{ Piece::O }, N>(board, target, ruleset, finesse),
-        Piece::L => get_input_impl::<{ Piece::L }, N>(board, target, ruleset, finesse),
-        Piece::J => get_input_impl::<{ Piece::J }, N>(board, target, ruleset, finesse),
-        Piece::S => get_input_impl::<{ Piece::S }, N>(board, target, ruleset, finesse),
-        Piece::Z => get_input_impl::<{ Piece::Z }, N>(board, target, ruleset, finesse),
+        Piece::T => get_input_impl::<{ Piece::T }, { RULE }, N>(board, target, finesse),
+        Piece::I => get_input_impl::<{ Piece::I }, { RULE }, N>(board, target, finesse),
+        Piece::O => get_input_impl::<{ Piece::O }, { RULE }, N>(board, target, finesse),
+        Piece::L => get_input_impl::<{ Piece::L }, { RULE }, N>(board, target, finesse),
+        Piece::J => get_input_impl::<{ Piece::J }, { RULE }, N>(board, target, finesse),
+        Piece::S => get_input_impl::<{ Piece::S }, { RULE }, N>(board, target, finesse),
+        Piece::Z => get_input_impl::<{ Piece::Z }, { RULE }, N>(board, target, finesse),
     }
 }
 
 /// Internal specialized implementation over [`Piece`] for [`get_input`].
 #[must_use]
 #[inline]
-pub fn get_input_impl<const P: Piece, const N: usize>(
+pub fn get_input_impl<const P: Piece, const RULE: Handling, const N: usize>(
     board: &Board<N>,
     target: Move,
-    ruleset: &Ruleset,
     finesse: bool,
 ) -> Inputs {
-    let spins = ruleset.spins;
+    let spins = RULE.spins;
     let can_t = P == Piece::T && spins.has_3corner();
     let can_allspin = P != Piece::T && P != Piece::O && spins.has_immobile();
     let can_spin = can_t || can_allspin;
@@ -270,7 +267,7 @@ pub fn get_input_impl<const P: Piece, const N: usize>(
         let y = st.y;
         let r = st.r;
 
-        // ---- hard drop (gravity descent) ----
+        // hard drop
         let dy = drop_y(board, P, r, x, y);
         let sc = if can_spin && dy == y {
             st.s
@@ -356,14 +353,14 @@ pub fn get_input_impl<const P: Piece, const N: usize>(
         }
 
         // ---- 180 rotation ----
-        if P != Piece::O && ruleset.use_180 {
+        if P != Piece::O && RULE.use_180 {
             let rt = r.flip();
             let off_x = P.canonical_offset(r as usize).0 - P.canonical_offset(rt as usize).0;
             let off_y = P.canonical_offset(r as usize).1 - P.canonical_offset(rt as usize).1;
 
             let kick_row = if matches!(P, Piece::I) {
                 KICKS_I_180[r as usize]
-            } else if ruleset.srs_plus {
+            } else if RULE.srs_plus {
                 KICKS_LJSZT_180[r as usize]
             } else {
                 KICKS_LJSZT_180_JSTRIS[r as usize]
@@ -500,7 +497,7 @@ pub fn get_input_impl<const P: Piece, const N: usize>(
 mod tests {
     use crate::pathfinder;
     use rue_core::board::Board;
-    use rue_core::game::ruleset::SEASON_2;
+    use rue_core::game::ruleset::{SEASON_2_HANDLING};
     use rue_core::placement::Move;
 
     // failed because couldn't 180 inplace? i think?
@@ -510,7 +507,7 @@ mod tests {
     fn fail_1() {
         let board = Board::from_vector([861810856984383, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(2734759936) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -519,7 +516,7 @@ mod tests {
     fn fail_2() {
         let board = Board::from_vector([426241851327, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(2860556288) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -528,7 +525,7 @@ mod tests {
     fn fail_3() {
         let board = Board::from_vector([1031745281991, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(3380649984) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -537,7 +534,7 @@ mod tests {
     fn fail_4() {
         let board = Board::from_vector([847488152330288639, 768, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(704749568) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -546,7 +543,7 @@ mod tests {
     fn fail_5() {
         let board = Board::from_vector([3250470463, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(41984000) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -555,7 +552,7 @@ mod tests {
     fn fail_6() {
         let board = Board::from_vector([103184014959, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(33587200) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -565,7 +562,7 @@ mod tests {
     fn fail_7() {
         let board = Board::from_vector([66879423, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(453017600) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
@@ -574,14 +571,13 @@ mod tests {
     fn fail_8() {
         let board = Board::from_vector([563941838749631, 0, 0, 0, 0, 0, 0, 0].into());
         let mv = unsafe { Move::from_raw(58761216) };
-        let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&board, mv, true);
         assert!(!inputs.0.is_empty());
     }
 
     // this requires non-infinite soft drop. this is just straight up not supported.
     // this test is mostly a signal for a movegen "fix".
-    //
-    // from the future: this fix has been applied. hooray!
+    // sonic drops should be gated under `RULE.inf_sdf`
     // #[test]
     // fn fail_9_expected() {
     //     let board = Board::from_vector([15839586959247, 0, 0, 0, 0, 0, 0, 0].into());

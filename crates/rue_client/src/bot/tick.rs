@@ -1,3 +1,4 @@
+use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::render;
 use triangle::Engine;
 use triangle::types::game::Key;
@@ -322,12 +323,12 @@ impl Bot {
                 ..SearchConfig::default()
             };
 
-            match beam_search(game, &cfg, &self.weights) {
+            match beam_search::<_, { SEASON_2_HANDLING }, _>(game, &cfg, &self.weights) {
                 Some(result) => {
                     let mv = result.best.root_move;
 
                     let requires_hold = mv.piece() != game.queue[0];
-                    let inputs = pathfinder::get_input(&game.board, mv, &game.ruleset, true);
+                    let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv, true);
                     println!("{}", render::render_with(game.board, &mv));
                     println!("requires_hold: {requires_hold}");
                     game.tick(mv);

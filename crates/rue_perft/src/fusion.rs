@@ -10,6 +10,7 @@ use rue_core::piece::Piece;
 use rue_nav::buffer::Moves;
 use rue_nav::movegen::count_locks;
 
+use crate::PERFT_HANDLING;
 use crate::height::band_words;
 
 /// Fused final-level evaluation: iterate moves and count leaves.
@@ -43,11 +44,11 @@ pub fn last_level<const P2: Piece, const N: usize, const M: usize>(
 
             debug_assert_eq!(h2, b2.max_y());
             nodes += u64::from(match band_words(h2 + P2.h_gen()) {
-                1 => count_locks::<P2, 1>(&b2.cast(), h2, 0, false),
-                2 => count_locks::<P2, 2>(&b2.cast(), h2, 0, false),
-                3 => count_locks::<P2, 3>(&b2.cast(), h2, 0, false),
-                4 => count_locks::<P2, 4>(&b2.cast(), h2, 0, false),
-                _ => count_locks::<P2, 8>(&b2.cast(), h2, 0, false),
+                1 => count_locks::<P2, { PERFT_HANDLING }, 1>(&b2.cast(), h2, 0),
+                2 => count_locks::<P2, { PERFT_HANDLING }, 2>(&b2.cast(), h2, 0),
+                3 => count_locks::<P2, { PERFT_HANDLING }, 3>(&b2.cast(), h2, 0),
+                4 => count_locks::<P2, { PERFT_HANDLING }, 4>(&b2.cast(), h2, 0),
+                _ => count_locks::<P2, { PERFT_HANDLING }, 8>(&b2.cast(), h2, 0),
             });
         });
         rc += 1;

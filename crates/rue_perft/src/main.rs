@@ -1,11 +1,9 @@
 //! Binary entrypoint for the [`rue_nav`] performance test.
 
 use rue_core::board::Board;
-use rue_core::game::ruleset::Ruleset;
-use rue_core::game::ruleset::SEASON_2;
+use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::piece::Piece;
 use rue_core::render::render_with;
-use rue_core::spin::Spins;
 use rue_nav::movegen;
 use rue_nav::pathfinder;
 use rue_perft::height::parse_queue;
@@ -30,16 +28,35 @@ pub fn main() {
     );
 
     #[allow(clippy::items_after_statements)]
-    const P: Piece = Piece::O;
+    const P: Piece = Piece::I;
     let mut b = Board::<2>::EMPTY;
     b.set_many(&[
-        (0,0),(0,3),
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (0, 3),
+        (1, 0),
+        (1, 1),
+        (1, 2),
+        (1, 3),
+        (2, 0),
+        (2, 1),
+        (2, 1),
+        (3, 1),
+        (7, 0),
+        (7, 1),
+        (7, 2),
+        (8, 0),
+        (8, 1),
+        (8, 2),
+        (9, 0),
+        (9, 1),
     ]);
-    let m = movegen::generate_inlined::<{ P }, { Spins::AllMini }, 2>(&b, 20, 0, true);
+    let m = movegen::generate_inlined::<{ P }, { SEASON_2_HANDLING }, 2>(&b, 20, 0);
     for p in m.iter() {
         // println!("{p:?}");
         println!("{}", render_with(b, &p));
-        println!("{:?}", pathfinder::get_input(&b, p, &SEASON_2, true));
+        println!("{:?}", pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&b, p, true));
     }
 
     // // mini

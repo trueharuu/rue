@@ -1,4 +1,5 @@
 use rue_core::game::Game;
+use rue_core::game::ruleset::Handling;
 use rue_core::piece::Piece;
 use rue_core::placement::Move;
 use rue_core::rotation::Rotation;
@@ -15,7 +16,7 @@ use crate::config::SearchExpansionContext;
 use crate::config::SearchNode;
 
 /// Generate all root-level nodes by applying each legal placement.
-pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
+pub(crate) fn expand_root<const N: usize, const RULE: Handling, W: Weights + Sync>(
     game: &Game<N>,
     ctx: &mut SearchExpansionContext<'_, W, N>,
 ) -> Vec<SearchNode<N>> {
@@ -23,12 +24,11 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
         return Vec::new();
     }
 
-    let moves_a = movegen::generate(
+    let moves_a = movegen::generate::<_, RULE>(
         &game.board,
-        game.ruleset,
         game.queue[0],
         game.board.max_y(),
-        0,
+        0
     );
 
     let moves_b = if game.hold.is_some() || game.queue.len() >= 2 {
@@ -36,7 +36,7 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
         if second == game.queue[0] {
             Moves::empty(second)
         } else {
-            movegen::generate(&game.board, game.ruleset, second, game.board.max_y(), 0)
+            movegen::generate::<_, RULE>(&game.board, second, game.board.max_y(), 0)
         }
     } else {
         Moves::empty(game.queue[0])
@@ -82,7 +82,7 @@ pub(crate) fn expand_root<const N: usize, W: Weights + Sync>(
 }
 
 /// Expand a single node into all its children.
-pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
+pub(crate) fn expand_node<const N: usize, const RULE: Handling, W: Weights + Sync>(
     parent: &SearchNode<N>,
     ctx: &mut SearchExpansionContext<'_, W, N>,
     out: &mut Vec<SearchNode<N>>,
@@ -92,9 +92,8 @@ pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
     }
 
     let current_piece = parent.game.queue[0];
-    let moves_a = movegen::generate(
+    let moves_a = movegen::generate::<_, RULE>(
         &parent.game.board,
-        parent.game.ruleset,
         current_piece,
         parent.game.board.max_y(),
         0,
@@ -105,9 +104,8 @@ pub(crate) fn expand_node<const N: usize, W: Weights + Sync>(
         if second == current_piece {
             Moves::empty(second)
         } else {
-            movegen::generate(
+            movegen::generate::<_, RULE>(
                 &parent.game.board,
-                parent.game.ruleset,
                 second,
                 parent.game.board.max_y(),
                 0,

@@ -11,6 +11,7 @@ use rue_core::board::Board;
 use rue_core::data::KickTab;
 use rue_core::envelope::EnvelopeTable;
 use rue_core::envelope::env_probe;
+use rue_core::game::ruleset::Handling;
 use rue_core::header::SPAWN_X;
 use rue_core::header::SPAWN_Y;
 use rue_core::header::TLINES;
@@ -23,11 +24,10 @@ use rue_core::spin::Spins;
 ///
 /// When `EMIT` is `true`, returns populated move buckets and a zero count.
 /// When `EMIT` is `false`, returns empty buckets and a reachable placement count.
-pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: bool>(
+pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT: bool>(
     b: &Board<N>,
     y: i32,
     force: i32,
-    sonic: bool,
 ) -> (Moves<N>, u32) {
     let h: i32 = TLINES * N as i32;
     let cs = P.canonical_rotations();
@@ -37,7 +37,9 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
     let usable = usable_map::<P, N>(b);
 
     // Pre-compute T-spin corner masks (Cobra's `spins` and `spinMap`).
-    let (has3, front2_arr): (Board<N>, [Board<N>; 4]) = if const { P as u8 == 0 && SPINS as u8 != 0 }
+    let (has3, front2_arr): (Board<N>, [Board<N>; 4]) = if const {
+        P as u8 == 0 && RULE.spins as u8 != 0
+    }
     {
         let wall_left = Board::<N>::col_mask(0);
         let wall_right = Board::<N>::col_mask(9);
@@ -118,14 +120,14 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                     moves.front2[r] = front2_arr[r] & landable;
 
                     if const { P as u8 == 0 } {
-                        match SPINS {
+                        match RULE.spins {
                             Spins::None => {
                                 moves.none[r] = landable;
                             }
                             Spins::T | Spins::AllMini | Spins::AllPlus => {
                                 // Cobra: moves[s][rs] = candidates[rs] & spinReach[s][rs]
                                 moves.full[r] = spin_reach_full[r] & landable;
-                                let mini_immobile = if const { SPINS as u8 == 1 } {
+                                let mini_immobile = if const { RULE.spins as u8 == 1 } {
                                     Board::<N>::EMPTY
                                 } else {
                                     via_rot & immobile & !(has3 & landable)
@@ -138,7 +140,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                             }
                         }
                     } else {
-                        match SPINS {
+                        match RULE.spins {
                             Spins::None | Spins::T => {
                                 moves.none[r] = landable;
                             }
@@ -282,7 +284,7 @@ pub fn gen_impl<const P: Piece, const SPINS: Spins, const N: usize, const EMIT: 
                 kick_step::<P, $d, $r, $kick_idx, N>(&mut temp, &mut result, &usable[r1c]);
 
                 // Cobra spin reach: classify kick result into NONE / MINI / FULL.
-                if const { P as u8 == 0 && SPINS as u8 != 0 } {
+                if const { P as u8 == 0 && RULE.spins as u8 != 0 } {
                     let spun = result & has3;
                     spin_reach_none[r1] |= result & !has3;
                     if const { $kick_idx >= 4 } {

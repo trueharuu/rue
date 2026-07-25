@@ -52,6 +52,9 @@ pub fn move_to_key(m: BotMove) -> Key {
     }
 }
 
+/// Success symbol.
 pub const SUCCESS: &str = "✅";
+/// Failure symbol.
 pub const FAILURE: &str = "❌";
+/// Warning symbol.
 pub const WARNING: &str = "⚠️";

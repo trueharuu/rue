@@ -50,6 +50,25 @@ pub fn vertical_ceiling<const N: usize>(mut surface: Board<N>, ceiling: i32) -> 
     surface
 }
 
+/// Projects a frontier straight down to its resting positions within `usable` cells.
+///
+/// Every set bit in `s` falls until it hits the floor or an occupied cell,
+/// i.e. until it lands on a cell in `landable_map`. Used for sonic-drop mode,
+/// where the piece never pauses mid-air between tucks/rotations.
+#[inline]
+#[must_use]
+pub fn sonic_drop<const N: usize>(mut s: Board<N>, usable: &Board<N>) -> Board<N> {
+    loop {
+        let new = s.shifted(0, -1) & *usable & !s;
+        if !new.any() {
+            break;
+        }
+        s |= new;
+    }
+    s
+}
+
+
 #[macro_export]
 /// Unrolls a compile-time rotation index loop for values `0..4` with a runtime limit.
 macro_rules! unroll {
@@ -75,21 +94,4 @@ macro_rules! unroll {
             if $r < $limit $body
         }
     }};
-}
-
-/// Drops a piece down until it collides with `usable` cells, returning the final resting position.
-#[must_use]
-#[inline]
-pub fn sonic_drop<const N: usize>(s: Board<N>, usable: &Board<N>) -> Board<N> {
-    let mut result = Board::<N>::EMPTY;
-    let mut current = s;
-    loop {
-        let below = current.shifted(0, -1) & *usable;
-        let moved = current & below.shifted(0, 1);
-        let landed = current & !moved;
-        result |= landed;
-        current = below;
-        if !current.any() { break; }
-    }
-    result
 }

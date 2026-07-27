@@ -2,16 +2,11 @@
 
 use rue_core::board::Board;
 use rue_core::game::ruleset::Handling;
-use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::piece::Piece;
 use rue_core::placement::Move;
-use rue_core::render::merge;
-use rue_core::render::render_with;
 use rue_core::rotation::Rotation;
 use rue_core::spin::Spin;
 use rue_core::spin::Spins;
-use rue_nav::collision;
-use rue_nav::movegen;
 use rue_nav::pathfinder;
 use rue_perft::height::parse_queue;
 use rue_perft::perft_mt;

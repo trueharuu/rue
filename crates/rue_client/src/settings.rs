@@ -7,6 +7,19 @@ use triangle::types::game::GarbageTargetBonus;
 use triangle::types::game::Passthrough;
 use triangle::types::game::SpinBonuses;
 
+
+
+/// Global configuration for Rue, including command prefix and other settings.
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub prefix: String,
+    pub name: String,
+    pub search_beam_width: usize,
+    pub queue_buffer: usize,
+    pub hosts: Vec<String>,
+    pub dev_room_id: Option<String>,
+}
+
 /// Result level of a constraint check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]

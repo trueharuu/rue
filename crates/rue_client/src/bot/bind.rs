@@ -20,10 +20,7 @@ use crate::settings::ConstraintLevel;
 use crate::utils::FAILURE;
 use crate::utils::WARNING;
 
-use super::BOT_NAME;
 use super::Bot;
-use super::PREFIX;
-use super::QUEUE_LOOKAHEAD;
 use super::fill;
 
 impl Bot {
@@ -80,20 +77,20 @@ impl Bot {
 
             if data.content == format!("@{bot_username}") {
                 if let Some(room) = b.client.room() {
-                    room.chat(&format!("My prefix is {PREFIX}")).await.ok();
+                    room.chat(&format!("My prefix is {}", b.global_config.prefix)).await.ok();
                 }
                 return;
             }
 
             let content = if data.content.starts_with(&format!("@{bot_username} ")) {
                 data.content
-                    .replacen(&format!("@{bot_username} "), PREFIX, 1)
+                    .replacen(&format!("@{bot_username} "), b.global_config.prefix.as_str(), 1)
             } else {
                 data.content.clone()
             }
             .to_lowercase();
 
-            let Some(rest) = content.strip_prefix(PREFIX) else {
+            let Some(rest) = content.strip_prefix(b.global_config.prefix.as_str()) else {
                 return;
             };
 
@@ -210,7 +207,7 @@ impl Bot {
                 {
                     let mut rng = Rng::new_seeded(engine.queue.seed as i32);
                     let mut queue = Vec::new();
-                    fill(&mut queue, &mut rng, QUEUE_LOOKAHEAD.div_ceil(7).max(1));
+                    fill(&mut queue, &mut rng, b.global_config.queue_buffer.div_ceil(7).max(1));
                     println!("{:?}", engine.queue.as_slice());
                     println!("{queue:?}");
 

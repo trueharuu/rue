@@ -74,10 +74,20 @@ impl GarbageQueue {
     ///
     /// "Cheese" is a queue with many small segments, while "clean" is a queue with large segments.
     /// Typically, a "clean" send is one that is >= 4 lines.
+    /// 
+    /// However, we want to avoid things that are cheesy in the beginning but clean in the end.
+    /// 
+    /// For now, we will define cleanliness as the amount of garbage divided by the number of segments, normalized to [0.0, 1.0].
     #[inline]
     #[must_use]
     pub fn cleanliness(&self) -> f64 {
-        todo!()
+        if self.segments.is_empty() {
+            1.0
+        } else {
+            let total = f64::from(self.total());
+            let segments = self.segments.len() as f64;
+            total / segments
+        }
     }
 }
 

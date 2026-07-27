@@ -100,8 +100,6 @@ pub fn get_input_impl<const P: Piece, const RULE: Handling, const N: usize>(
             );
 
             if dropped_ghost.canonicalize() == target.canonicalize() {
-                // println!("\x1b[32m{path:?} {dropped_ghost:?}\x1b[0m");
-
                 return path.append(Input::HardDrop);
             }
         }

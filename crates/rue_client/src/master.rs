@@ -15,6 +15,7 @@ use crate::bot::Target;
 use crate::env::env;
 use crate::events::events;
 use crate::events::msgs;
+use crate::settings::Config;
 
 /// A global master client that manages child bot instances and handles invites.
 pub struct Master {
@@ -22,11 +23,13 @@ pub struct Master {
     client: Client,
     /// All connected children currently in rooms.
     children: Arc<Mutex<Vec<Arc<Bot>>>>,
+    /// The global configuration across *all* nodes.
+    config: Config,
 }
 
 impl Master {
     /// Creates a new master client, connecting to the server and setting up event handlers.
-    pub async fn new() -> Result<Self, ApiError> {
+    pub async fn new(cfg: Config) -> Result<Self, ApiError> {
         let c = Master {
             client: Client::new(ClientOptions {
                 game: None,
@@ -43,6 +46,7 @@ impl Master {
             })
             .await?,
             children: Arc::new(Mutex::new(Vec::new())),
+            config: cfg,
         };
 
         c.init().await;
@@ -55,33 +59,45 @@ impl Master {
     async fn init(&self) {
         self.client
             .social
-            .set_status(Status::Online, Detail::Menus)
+            .set_status(Status::Online, Detail::Zen)
             .await;
 
         let c = self.children.clone();
         let cc = self.client.clone();
+        let config = self.config.clone();
 
         self.client.on::<recv::social::Invite>(async move |invite| {
-            match Bot::new(Target::Join(invite.roomid.clone())).await {
+            match Bot::new(Target::Join(invite.roomid.clone()), config).await {
                 Ok(bot) => {
                     c.lock().await.push(bot);
                 }
                 Err(e) => {
                     let message = e.to_string();
                     cc.social
-                        .dm(invite.sender, format!("Failed to join room: {message}"))
+                        .dm(invite.sender, format!("failed to join room: {message}"))
                         .await
                         .ok();
                 }
             }
         });
 
-        let client = self.client.clone();
-        self.client.on::<recv::client::DM>(async move |dm| {
-            if dm.content == "ping" {
-                client.social.dm(dm.user_id, "pong").await.ok();
+        let c = self.children.clone();
+
+        // join dev room
+        if let Some(ref id) = self.config.dev_room_id {
+            match Bot::new(Target::Join(id.clone()), self.config.clone()).await {
+                Ok(bot) => {
+                    c.lock().await.push(bot);
+                }
+                Err(e) => {
+                    tracing::error!("failed to join dev room {id}: {e}");
+                }
             }
-        });
+        }
+
+        let client = self.client.clone();
+
+        // TODO: handle DM commands
 
         let mut client = self.client.clone();
 

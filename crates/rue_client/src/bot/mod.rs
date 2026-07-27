@@ -49,16 +49,7 @@ const BOARD_BANDS: usize = 7;
 /// The persistent solver-side game state kept for the live room.
 type BotGame = Game<BOARD_BANDS>;
 
-/// Chat command prefix.
-const PREFIX: &str = ">";
-/// Bot name, used in reply/restriction messages.
-const BOT_NAME: &str = "rue";
-/// Beam search depth (in placements) used for real-time move selection.
-const SEARCH_DEPTH: usize = 7;
-/// Beam width used for real-time move selection.
-const SEARCH_BEAM_WIDTH: usize = 300;
-/// Minimum queue length to keep buffered ahead of the search depth.
-const QUEUE_LOOKAHEAD: usize = SEARCH_DEPTH + 7;
+
 
 /// A join or create target for the bot.
 #[derive(Debug, Clone)]
@@ -83,6 +74,8 @@ pub struct Bot {
     events: EventEmitter,
     /// The command registry used to handle chat commands.
     pub registry: Registry,
+    /// The global configuration across *all* nodes, including search beam width and queue buffer size.
+    pub global_config: crate::settings::Config,
 }
 
 /// An error that can occur when creating or running the bot, including connection errors, room errors, and IO errors.
@@ -97,9 +90,9 @@ pub enum BotError {
 impl fmt::Display for BotError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BotError::Connection(err) => write!(f, "Failed to create client: {err}"),
-            BotError::Room(err) => write!(f, "Failed to join or create room: {err}"),
-            BotError::Io(err) => write!(f, "IO error: {err}"),
+            BotError::Connection(err) => write!(f, "failed to create client: {err}"),
+            BotError::Room(err) => write!(f, "failed to join or create room: {err}"),
+            BotError::Io(err) => write!(f, "i/o error: {err}"),
         }
     }
 }
@@ -131,7 +124,7 @@ fn fill(queue: &mut Vec<Piece>, rng: &mut Rng, n: usize) {
 
 impl Bot {
     /// Creates a new bot instance, connecting to the server and joining or creating a room based on the given target.
-    pub async fn new(target: Target) -> Result<Arc<Self>, BotError> {
+    pub async fn new(target: Target, global_config: crate::settings::Config) -> Result<Arc<Self>, BotError> {
         let client = Client::new(ClientOptions {
             game: Some(triangle::classes::GameOptions {
                 handling: Some(CONFIG.handling),
@@ -186,6 +179,7 @@ impl Bot {
                 .map_err(|e| BotError::Io(e.into()))?;
 
         let bot = Arc::new(Bot {
+            global_config,
             // Real seeding happens once the room's queue seed is known, on round start.
             game: Mutex::new(Game {
                 board: Board::EMPTY,
@@ -204,6 +198,7 @@ impl Bot {
                 finesse: Finesse::Instant,
                 pps: 1.0,
                 burst: true,
+                vision: 7,
             }),
             state: RwLock::new(State {
                 enabled: EnabledState {

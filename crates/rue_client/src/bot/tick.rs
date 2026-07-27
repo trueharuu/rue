@@ -14,9 +14,6 @@ use crate::utils::BotMove;
 use crate::utils::{self};
 
 use super::Bot;
-use super::QUEUE_LOOKAHEAD;
-use super::SEARCH_BEAM_WIDTH;
-use super::SEARCH_DEPTH;
 use super::fill;
 
 /// A strictly-increasing frame counter that can represent subframes as tenths of a frame.
@@ -313,13 +310,13 @@ impl Bot {
         let raw_keys: Vec<BotMove> = {
             let mut game = self.game.lock().await;
             let game = &mut *game;
-            if game.queue.len() < QUEUE_LOOKAHEAD {
+            if game.queue.len() < self.global_config.queue_buffer {
                 fill(&mut game.queue, &mut game.rng, 2);
             }
 
             let cfg = SearchConfig {
-                beam_width: SEARCH_BEAM_WIDTH,
-                depth: SEARCH_DEPTH,
+                beam_width: self.global_config.search_beam_width,
+                depth: self.config.read().await.vision,
                 futility_delta: 0.0,
                 ..SearchConfig::default()
             };
@@ -331,8 +328,6 @@ impl Bot {
                     let requires_hold = mv.piece() != game.queue[0];
                     let inputs =
                         pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv);
-                    println!("{}", render::render_with(game.board, &mv));
-                    println!("requires_hold: {requires_hold}");
                     game.tick(mv);
 
                     let mut raw = Vec::with_capacity(inputs.len() + 1);

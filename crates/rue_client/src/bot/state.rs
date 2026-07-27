@@ -15,7 +15,9 @@ pub struct Config {
     pub pps: f64,
     pub burst: bool,
     pub finesse: Finesse,
+    pub vision: usize,
 }
+
 /// Whether the bot is enabled, and whether it should attempt to enable itself if disabled.
 #[derive(Debug, Clone)]
 pub struct EnabledState {

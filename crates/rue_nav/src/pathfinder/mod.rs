@@ -77,10 +77,10 @@ pub fn get_input_impl<const P: Piece, const RULE: Handling, const N: usize>(
 
         // harddrop
         let mut drop_y = y;
-        println!(
-            "{path:?} {ghost:?} -> {:?} vs {target:?}",
-            ghost.canonicalize()
-        );
+        // println!(
+        //     "{path:?} {ghost:?} -> {:?} vs {target:?}",
+        //     ghost.canonicalize()
+        // );
         // println!("{}", render::render_with(*board, &ghost));
         while check::<P, N>(&usable, x, drop_y - 1, r) {
             drop_y -= 1;
@@ -100,7 +100,7 @@ pub fn get_input_impl<const P: Piece, const RULE: Handling, const N: usize>(
             );
 
             if dropped_ghost.canonicalize() == target.canonicalize() {
-                println!("\x1b[32m{path:?} {dropped_ghost:?}\x1b[0m");
+                // println!("\x1b[32m{path:?} {dropped_ghost:?}\x1b[0m");
 
                 return path.append(Input::HardDrop);
             }

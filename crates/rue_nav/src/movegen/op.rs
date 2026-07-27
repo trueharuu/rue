@@ -2,6 +2,7 @@
 
 use rue_core::board::Board;
 use rue_core::data::K5;
+use rue_core::data::K6;
 
 #[inline]
 /// Applies one kick candidate in-place, accumulating translated hits into `result`.
@@ -18,6 +19,25 @@ pub fn kick_step<const I: usize, const N: usize>(
     *result |= temp.shifted(kx, ky);
 
     if I != 4 {
+        *temp &= !usable_r1c.shifted(-kx, -ky);
+    }
+}
+
+#[inline]
+/// Applies one 180-degree kick candidate in-place, accumulating translated hits into `result`.
+pub fn kick_step_180<const I: usize, const N: usize>(
+    temp: &mut Board<N>,
+    result: &mut Board<N>,
+    usable_r1c: &Board<N>,
+    kick_row: &K6,
+    off_x: i32,
+    off_y: i32,
+) {
+    let kx = i32::from(kick_row[I].0) + off_x;
+    let ky = i32::from(kick_row[I].1) + off_y;
+    *result |= temp.shifted(kx, ky);
+
+    if I != 5 {
         *temp &= !usable_r1c.shifted(-kx, -ky);
     }
 }

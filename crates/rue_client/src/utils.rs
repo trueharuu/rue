@@ -1,7 +1,7 @@
 //! Utility functions for the Rue client.
 
 use rue_core::rng::Rng;
-use rue_nav::pathfinder::Input;
+use rue_nav::pathfinder::input::Input;
 use triangle::types::game::Key;
 
 /// A single raw controller action for the current piece: either a hold
@@ -49,6 +49,7 @@ pub fn move_to_key(m: BotMove) -> Key {
         BotMove::Path(Input::RotateCW) => Key::RotateCW,
         BotMove::Path(Input::RotateCCW) => Key::RotateCCW,
         BotMove::Path(Input::RotateFlip) => Key::Rotate180,
+        BotMove::Path(Input::None) => unreachable!(),
     }
 }
 

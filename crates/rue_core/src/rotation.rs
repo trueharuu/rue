@@ -3,7 +3,8 @@
 use std::marker::ConstParamTy;
 
 /// Cardinal orientation for piece geometry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
+#[derive(Debug, Clone, Copy, ConstParamTy)]
+#[derive_const(PartialEq, Eq)]
 pub enum Rotation {
     /// Spawn orientation.
     North = 0,

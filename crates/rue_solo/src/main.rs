@@ -94,8 +94,8 @@ pub fn main() {
 
         let (best, score) = best.unwrap();
         println!("{}", render_with(game.board, &best));
-        let input = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, best, true);
-        assert!(!input.0.is_empty(), "can't actually do it");
+        let input = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, best);
+        assert!(!input.is_empty(), "can't actually do it");
         println!("{input:?}");
         let page = fu.add_page();
         for fy in 0..23 {
@@ -211,8 +211,8 @@ pub fn best_placement<const N: usize>(
     let result = beam_search_with_scores::<_, { SEASON_2_HANDLING }, _>(game, &cfg, model)?;
     println!("{}", result.root_scores.len());
     for &(mv, score) in &result.root_scores {
-        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv, true);
-        if inputs.0.is_empty() {
+        let inputs = pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv);
+        if inputs.is_empty() {
             println!("failed to get finesse for: {mv:?}");
             println!("{}", render_with(game.board, &mv));
             println!("dump:");
@@ -221,10 +221,9 @@ pub fn best_placement<const N: usize>(
                 game.board.vector()
             );
             println!("let mv = unsafe {{ Move::from_raw({}) }};", mv.raw());
-            println!("let inputs = pathfinder::get_input(&board, mv, &SEASON_2, true);");
-            println!("assert!(!inputs.0.is_empty());");
-        }
-        if !inputs.0.is_empty() {
+            println!("let inputs = pathfinder::get_input::<_, {{ SEASON_2_HANDLING }}>(&board, mv);");
+            println!("assert!(!inputs.is_empty());");
+        } else {
             return Some((mv, score));
         }
     }

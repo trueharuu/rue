@@ -10,13 +10,13 @@ All crates use `edition = "2024"` and `#![feature(portable_simd, min_adt_const_p
 
 | Task | Command |
 |------|---------|
-| Build | `cargo build --workspace` |
-| Test | `cargo test --workspace` |
+| Build | `cargo build --release --workspace` |
+| Test | `cargo test --release --workspace` |
 | Lint | `cargo clippy --workspace --all-targets` |
 | Format | `cargo fmt` (check: `cargo fmt --check`) |
-| Bench | `cargo bench -p rue_search` |
-| Solo (offline play) | `cargo run -p rue_solo -- --load weights/simple.json -n 500` |
-| Perft (move-gen perf) | `cargo run -p rue_perft` |
+| Bench | `cargo bench --package rue_search` |
+| Solo (offline play) | `cargo run --release --package rue_solo -- --load weights/simple.json -n 500` |
+| Perft (move-gen perf) | `cargo run --release --package rue_perft` |
 
 There is no CI. Run clippy + fmt + test before committing. For any change that occurs in movegen (`rue_nav::movegen`) should be personally tested with `rue_perft`:
 ```sh

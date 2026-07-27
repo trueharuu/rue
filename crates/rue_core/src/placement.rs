@@ -108,6 +108,28 @@ impl Move {
             (x + rotated[2].0 as i32, y + rotated[2].1 as i32),
         ]
     }
+
+    /// Returns the canonical form of this [`Move`].
+    ///
+    /// Symmetrical [`Move`]s can have the same [`Move::cells`] result, with different values:
+    /// - [`Piece::T`], [`Piece::J`], and [`Piece::L`] has 1 canonical state
+    /// - [`Piece::I`], [`Piece::S`], and [`Piece::Z`] have 2 canonical states
+    /// - [`Piece::O`] has 1 canonical state
+    #[inline]
+    #[must_use]
+    pub const fn canonicalize(&self) -> Self {
+        let p = self.piece();
+        let r = self.rotation();
+        let cr = Rotation::from(p.canonical_rotation(r as usize) as u8);
+        if p.group3()
+            || r == cr
+        {
+            *self
+        } else {
+            let (dx, dy) = p.canonical_offset(r as usize);
+            Self::new(p, cr, self.x() - dx, self.y() - dy, self.spin())
+        }
+    }
 }
 
 impl Debug for Move {

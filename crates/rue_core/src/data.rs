@@ -78,14 +78,14 @@ pub const KICKS_I_TETRIO: [[K5; 4]; 2] = [
 ];
 
 /// Six kick offsets tested for a 180-degree rotation attempt.
-type K6 = [(i8, i8); 6];
+pub type K6 = [(i8, i8); 6];
 
 // T.NS=(0,0)(0,1)(1,1)(-1,1)(1,0)(-1,0)
 // T.EW=(0,0)(1,0)(1,2)(1,1)(0,2)(0,1)
 // T.SN=(0,0)(0,-1)(-1,-1)(1,-1)(-1,0)(1,0)
 // T.WE=(0,0)(-1,0)(-1,2)(-1,1)(0,2)(0,1)
 /// TETR.IO SRS+ 180-degree kick rows for J/L/S/T/Z pieces indexed by source rotation.
-pub const KICKS_LJSZT_180: [K6; 4] = [
+pub const KICKS_LJSZT_180_TETRIO: [K6; 4] = [
     [(0, 0), (0, 1), (1, 1), (-1, 1), (1, 0), (-1, 0)],
     [(0, 0), (1, 0), (1, 2), (1, 1), (0, 2), (0, 1)],
     [(0, 0), (0, -1), (-1, -1), (1, -1), (-1, 0), (1, 0)],
@@ -97,7 +97,7 @@ pub const KICKS_LJSZT_180: [K6; 4] = [
 // T.SN=(0,0)(0,-1)
 // T.WE=(0,0)(-1,0)
 /// Standard SRS 180-degree kick rows for J/L/S/T/Z pieces indexed by source rotation.
-pub const KICKS_LJSZT_180_JSTRIS: [K6; 4] = [
+pub const KICKS_LJSZT_180: [K6; 4] = [
     [(0, 0), (0, 1), (0, 0), (0, 0), (0, 0), (0, 0)],
     [(0, 0), (1, 0), (0, 0), (0, 0), (0, 0), (0, 0)],
     [(0, 0), (0, -1), (0, 0), (0, 0), (0, 0), (0, 0)],
@@ -128,12 +128,38 @@ pub const fn kick_row_const(p: Piece, d: usize, r: usize, srs_plus: bool) -> K5 
     }
 }
 
+#[must_use]
+/// Returns the 180-degree kick row for piece `p`, rotation `r`, and `srs_plus` flag.
+pub const fn kick_row_180_const(p: Piece, r: usize, srs_plus: bool) -> K6 {
+    if matches!(p, Piece::I) {
+        KICKS_I_180[r]
+    } else if srs_plus {
+        KICKS_LJSZT_180_TETRIO[r]
+    } else {
+        KICKS_LJSZT_180[r]
+    }
+}
+
 /// Compile-time kick table accessor specialized by piece/direction/rotation const params.
 pub struct KickTab<const P: Piece, const D: usize, const R: usize>;
 
 impl<const P: Piece, const D: usize, const R: usize> KickTab<P, D, R> {
     /// Destination rotation index for this kick transition.
     pub const R1: usize = if D == 0 { (R + 1) & 3 } else { (R + 3) & 3 };
+    /// Canonicalized destination rotation for symmetry-reduced processing.
+    pub const R1C: usize = P.canonical_rotation(Self::R1);
+    /// Canonical frame x-offset between source and destination rotations.
+    pub const OFF_X: i32 = P.canonical_offset(R).0 - P.canonical_offset(Self::R1).0;
+    /// Canonical frame y-offset between source and destination rotations.
+    pub const OFF_Y: i32 = P.canonical_offset(R).1 - P.canonical_offset(Self::R1).1;
+}
+
+/// Compile-time 180-degree kick table accessor specialized by piece/rotation const params.
+pub struct KickTab180<const P: Piece, const R: usize>;
+
+impl<const P: Piece, const R: usize> KickTab180<P, R> {
+    /// Destination rotation index for a 180-degree rotation (R + 2) mod 4.
+    pub const R1: usize = (R + 2) & 3;
     /// Canonicalized destination rotation for symmetry-reduced processing.
     pub const R1C: usize = P.canonical_rotation(Self::R1);
     /// Canonical frame x-offset between source and destination rotations.

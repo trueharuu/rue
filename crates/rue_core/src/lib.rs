@@ -3,7 +3,7 @@
 //! The crate exposes bitboard operations, rotation/kick tables, and lightweight
 //! placement/render helpers used by higher-level search or analysis crates.
 
-#![feature(portable_simd, min_adt_const_params, const_trait_impl)]
+#![feature(portable_simd, min_adt_const_params, const_trait_impl, const_cmp, derive_const)]
 pub mod board;
 pub mod data;
 pub mod envelope;

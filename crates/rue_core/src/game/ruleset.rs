@@ -3,6 +3,7 @@ use crate::spin::Spin;
 use crate::spin::Spins;
 use std::marker::ConstParamTy;
 /// Global move-generation settings.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ConstParamTy)]
 pub struct Handling {
     /// Whether to use infinite SDF for move generation.
@@ -13,6 +14,8 @@ pub struct Handling {
     pub use_180: bool,
     /// Spin allowance policy.
     pub spins: Spins,
+    /// Whether to use DAS finesse.
+    pub finesse: bool,
 }
 
 /// A ruleset for any given game.
@@ -137,6 +140,7 @@ pub const SEASON_2_HANDLING: Handling = Handling {
     srs_plus: true,
     use_180: true,
     spins: Spins::AllMini,
+    finesse: true,
 };
 
 /// The currently active rule set for TETR.IO Tetra League Season 2.

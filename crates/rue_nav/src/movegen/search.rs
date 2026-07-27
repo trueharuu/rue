@@ -5,10 +5,13 @@ use crate::collision::landable_map;
 use crate::collision::usable_map;
 use crate::movegen::op::horizontal_tuck;
 use crate::movegen::op::kick_step;
+use crate::movegen::op::kick_step_180;
 use crate::movegen::op::vertical_ceiling;
 use crate::unroll;
 use rue_core::board::Board;
 use rue_core::data::KickTab;
+use rue_core::data::KickTab180;
+use rue_core::data::kick_row_180_const;
 use rue_core::data::kick_row_const;
 use rue_core::envelope::EnvelopeTable;
 use rue_core::envelope::env_probe;
@@ -76,6 +79,7 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
     let mut search = [Board::<N>::EMPTY; 4];
     let mut reached_via_rotation = [Board::<N>::EMPTY; 4];
     let mut reached_via_5th_kick = [Board::<N>::EMPTY; 4];
+    let mut reached_via_180 = [Board::<N>::EMPTY; 4];
 
     let mut reached_by_translation = [Board::<N>::EMPTY; 4];
 
@@ -109,7 +113,7 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
                     let mut via_5th = Board::<N>::EMPTY;
                     unroll!(srs, 4, {
                         if const { P.canonical_rotation(srs) } == r {
-                            via_rot |= reached_via_rotation[srs];
+                            via_rot |= reached_via_rotation[srs] | reached_via_180[srs];
                             via_5th |= reached_via_5th_kick[srs];
                         }
                     });
@@ -145,11 +149,11 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
                                 moves.none[r] = landable;
                             }
                             Spins::AllMini => {
-                                moves.none[r] = reached_by_translation[r] & landable;
+                                moves.none[r] = reached_by_translation[r] & landable & !immobile;
                                 moves.mini[r] = immobile;
                             }
                             Spins::AllPlus => {
-                                moves.none[r] = reached_by_translation[r] & landable;
+                                moves.none[r] = reached_by_translation[r] & landable & !immobile;
                                 moves.full[r] = immobile;
                             }
                         }
@@ -326,6 +330,104 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
         }};
     }
 
+    macro_rules! rot_kick_180 {
+        ($r:literal, $kick_idx:literal, $probe:ident) => {{
+            let r1 = const { KickTab180::<P, $r>::R1 };
+            let r1c = const { KickTab180::<P, $r>::R1C };
+            if $probe.any() {
+                let off_x = KickTab180::<P, $r>::OFF_X;
+                let off_y = KickTab180::<P, $r>::OFF_Y;
+                let kick_row = kick_row_180_const(P, $r, RULE.srs_plus);
+                let mut temp = search[$r];
+                let mut prior = Board::<N>::EMPTY;
+                if $kick_idx >= 1 {
+                    kick_step_180::<0, N>(
+                        &mut temp,
+                        &mut prior,
+                        &usable[r1c],
+                        &kick_row,
+                        off_x,
+                        off_y,
+                    );
+                }
+                if $kick_idx >= 2 {
+                    kick_step_180::<1, N>(
+                        &mut temp,
+                        &mut prior,
+                        &usable[r1c],
+                        &kick_row,
+                        off_x,
+                        off_y,
+                    );
+                }
+                if $kick_idx >= 3 {
+                    kick_step_180::<2, N>(
+                        &mut temp,
+                        &mut prior,
+                        &usable[r1c],
+                        &kick_row,
+                        off_x,
+                        off_y,
+                    );
+                }
+                if $kick_idx >= 4 {
+                    kick_step_180::<3, N>(
+                        &mut temp,
+                        &mut prior,
+                        &usable[r1c],
+                        &kick_row,
+                        off_x,
+                        off_y,
+                    );
+                }
+                if $kick_idx >= 5 {
+                    kick_step_180::<4, N>(
+                        &mut temp,
+                        &mut prior,
+                        &usable[r1c],
+                        &kick_row,
+                        off_x,
+                        off_y,
+                    );
+                }
+                let mut result = Board::<N>::EMPTY;
+                kick_step_180::<$kick_idx, N>(
+                    &mut temp,
+                    &mut result,
+                    &usable[r1c],
+                    &kick_row,
+                    off_x,
+                    off_y,
+                );
+
+                if const { P as u8 == 0 && RULE.spins as u8 != 0 } {
+                    let spun = result & has3;
+                    spin_reach_none[r1] |= result & !has3;
+                    if const { $kick_idx >= 5 } {
+                        spin_reach_full[r1] |= spun;
+                    } else {
+                        spin_reach_mini[r1] |= spun & !front2_arr[r1];
+                        spin_reach_full[r1] |= spun & front2_arr[r1];
+                    }
+                }
+
+                let res = result & unsearched[r1];
+                reached_via_180[r1] |= result & usable[r1c];
+                if res.any() {
+                    search[r1] |= res;
+                    unsearched[r1] &= !res;
+                    done &= !(1u32 << r1);
+                    missing[r1c] &= !res;
+                    if missing[r1c].any() {
+                        remaining |= 1 << r1c;
+                    } else {
+                        remaining &= !(1u32 << r1c);
+                    }
+                }
+            }
+        }};
+    }
+
     macro_rules! process_rot {
         ($r:literal) => {
             if $r < ss && done & (1 << $r) == 0 {
@@ -336,7 +438,7 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
                     let temp_all = search[$r].shifted(-1, 0)
                         | search[$r].shifted(1, 0)
                         | search[$r].shifted(0, -1);
-                    // Cobra: spinReach[NONE][r] |= temp (before unsearched filter)
+
                     spin_reach_none[$r] |= temp_all;
                     let temp = temp_all & unsearched[$r];
 
@@ -371,6 +473,15 @@ pub fn gen_impl<const P: Piece, const RULE: Handling, const N: usize, const EMIT
                         rot_kick!($r, 1, 2, probe);
                         rot_kick!($r, 1, 3, probe);
                         rot_kick!($r, 1, 4, probe);
+                        // 180-degree rotation: 6 kicks (indices 0-5)
+                        if const { RULE.use_180 } {
+                            rot_kick_180!($r, 0, probe);
+                            rot_kick_180!($r, 1, probe);
+                            rot_kick_180!($r, 2, probe);
+                            rot_kick_180!($r, 3, probe);
+                            rot_kick_180!($r, 4, probe);
+                            rot_kick_180!($r, 5, probe);
+                        }
                         if remaining == 0 {
                             done = all_done;
                         }

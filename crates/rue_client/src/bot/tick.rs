@@ -1,5 +1,6 @@
 use rue_core::game::ruleset::SEASON_2_HANDLING;
 use rue_core::render;
+use rue_nav::pathfinder::input::Input;
 use triangle::Engine;
 use triangle::types::game::Key;
 use triangle::types::game::tick;
@@ -48,11 +49,11 @@ impl FrameCounter {
 
 impl Bot {
     fn keypress_duration(m: BotMove, engine: &Engine) -> f64 {
-        if matches!(m, BotMove::Path(pathfinder::Input::SoftDrop)) {
+        if matches!(m, BotMove::Path(Input::SoftDrop)) {
             0.1
         } else if matches!(
             m,
-            BotMove::Path(pathfinder::Input::DasLeft | pathfinder::Input::DasRight)
+            BotMove::Path(Input::DasLeft | Input::DasRight)
         ) {
             engine.handling.das + 0.1
         } else {
@@ -107,14 +108,14 @@ impl Bot {
 
                 let soft_drop_count = raw
                     .iter()
-                    .filter(|m| matches!(m, BotMove::Path(pathfinder::Input::SoftDrop)))
+                    .filter(|m| matches!(m, BotMove::Path(Input::SoftDrop)))
                     .count();
                 let das_count = raw
                     .iter()
                     .filter(|m| {
                         matches!(
                             m,
-                            BotMove::Path(pathfinder::Input::DasLeft | pathfinder::Input::DasRight)
+                            BotMove::Path(Input::DasLeft | Input::DasRight)
                         )
                     })
                     .count();
@@ -133,11 +134,11 @@ impl Bot {
                     let delay = time_per_press.max(0.0);
                     let is_das = matches!(
                         m,
-                        BotMove::Path(pathfinder::Input::DasLeft | pathfinder::Input::DasRight)
+                        BotMove::Path(Input::DasLeft | Input::DasRight)
                     );
                     let arr_time = if is_das {
                         let x_before = sim_falling.x();
-                        if matches!(m, BotMove::Path(pathfinder::Input::DasLeft)) {
+                        if matches!(m, BotMove::Path(Input::DasLeft)) {
                             sim_falling.das_left(&engine.board.state);
                         } else {
                             sim_falling.das_right(&engine.board.state);
@@ -146,13 +147,13 @@ impl Bot {
                         (arr * (displacement - 1.0)).max(0.0)
                     } else {
                         match m {
-                            BotMove::Path(pathfinder::Input::RotateCW) => {
+                            BotMove::Path(Input::RotateCW) => {
                                 sim_falling.set_rotation(i32::from(sim_falling.rotation()) + 1);
                             }
-                            BotMove::Path(pathfinder::Input::RotateCCW) => {
+                            BotMove::Path(Input::RotateCCW) => {
                                 sim_falling.set_rotation(i32::from(sim_falling.rotation()) - 1);
                             }
-                            BotMove::Path(pathfinder::Input::RotateFlip) => {
+                            BotMove::Path(Input::RotateFlip) => {
                                 sim_falling.set_rotation(i32::from(sim_falling.rotation()) + 2);
                             }
                             _ => {}
@@ -167,7 +168,7 @@ impl Bot {
                     let prev_frame = frame.0;
                     frame.add(delay + duration);
 
-                    if matches!(m, BotMove::Path(pathfinder::Input::SoftDrop))
+                    if matches!(m, BotMove::Path(Input::SoftDrop))
                         && frame.as_f64() != 0.0
                     {
                         frame = frame.max(&FrameCounter((prev_frame + duration).ceil()));
@@ -329,16 +330,16 @@ impl Bot {
 
                     let requires_hold = mv.piece() != game.queue[0];
                     let inputs =
-                        pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv, true);
+                        pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv);
                     println!("{}", render::render_with(game.board, &mv));
                     println!("requires_hold: {requires_hold}");
                     game.tick(mv);
 
-                    let mut raw = Vec::with_capacity(inputs.0.len() + 1);
+                    let mut raw = Vec::with_capacity(inputs.len() + 1);
                     if requires_hold {
                         raw.push(BotMove::Hold);
                     }
-                    raw.extend(inputs.0.into_iter().map(BotMove::Path));
+                    raw.extend(inputs.into_iter().map(BotMove::Path));
                     raw
                 }
                 None => Vec::new(),

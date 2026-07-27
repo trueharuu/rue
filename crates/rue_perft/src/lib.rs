@@ -26,6 +26,7 @@ pub const PERFT_HANDLING: Handling = Handling {
     srs_plus: false,
     use_180: false,
     spins: Spins::None,
+    finesse: true,
 };
 
 /// Perft from an empty board over the given piece queue.

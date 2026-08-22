@@ -7,8 +7,6 @@ use triangle::types::game::GarbageTargetBonus;
 use triangle::types::game::Passthrough;
 use triangle::types::game::SpinBonuses;
 
-
-
 /// Global configuration for Rue, including command prefix and other settings.
 #[derive(Debug, Clone)]
 pub struct Config {

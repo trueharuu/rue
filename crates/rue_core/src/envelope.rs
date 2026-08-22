@@ -1,23 +1,28 @@
 //! Rotation envelope helpers for conservative occupancy expansion.
 
 use crate::board::Board;
-use crate::data::kick_row_const;
+use crate::data::KICKS_I;
+use crate::data::KICKS_O;
+use crate::data::KICKS_TJLSZ;
 use crate::piece::Piece;
 
 /// Computes the min/max kick reach `(xmin, xmax, ymin, ymax)` across cw/ccw kicks.
+#[inline]
 #[must_use]
 pub const fn env_union(p: Piece, r: usize) -> (i32, i32, i32, i32) {
+    let kt = match p {
+        Piece::I => &KICKS_I,
+        Piece::O => &KICKS_O,
+        _ => &KICKS_TJLSZ,
+    };
     let (mut xmin, mut xmax, mut ymin, mut ymax) = (i32::MAX, i32::MIN, i32::MAX, i32::MIN);
     let mut d = 0;
     while d < 2 {
         let r1 = if d == 0 { (r + 1) & 3 } else { (r + 3) & 3 };
-        let off_x = p.canonical_offset(r).0 - p.canonical_offset(r1).0;
-        let off_y = p.canonical_offset(r).1 - p.canonical_offset(r1).1;
-        let row = kick_row_const(p, d, r, false);
         let mut i = 0;
         while i < 5 {
-            let kx = row[i].0 as i32 + off_x;
-            let ky = row[i].1 as i32 + off_y;
+            let kx = kt[r][r1].0[i].0 as i32;
+            let ky = kt[r][r1].0[i].1 as i32;
             if kx < xmin {
                 xmin = kx;
             }
@@ -45,9 +50,9 @@ impl<const P: Piece, const R: usize> EnvelopeTable<P, R> {
     pub const E: (i32, i32, i32, i32) = env_union(P, R);
 }
 
+/// Expands occupied cells by envelope reach to produce candidate collision probes.
 #[inline]
 #[must_use]
-/// Expands occupied cells by envelope reach to produce candidate collision probes.
 pub fn env_probe<const N: usize>(s: &Board<N>, e: (i32, i32, i32, i32)) -> Board<N> {
     let (xmin, xmax, ymin, ymax) = e;
     let mut h = *s;

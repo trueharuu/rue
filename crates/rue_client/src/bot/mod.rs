@@ -24,15 +24,6 @@ use triangle::utils::EventEmitter;
 use triangle::utils::api::core::ApiError;
 use triangle::utils::events::WrapError;
 
-use rue_core::board::Board;
-use rue_core::game::Game;
-use rue_core::game::garbage::GarbageQueue;
-use rue_core::game::ruleset::SEASON_2;
-use rue_core::piece::Piece;
-use rue_core::rng::Rng;
-use rue_core::rng::RngKind;
-use rue_eval::simple::Simple;
-
 use crate::bot::state::Config;
 use crate::bot::state::EnabledState;
 use crate::bot::state::Finesse;
@@ -44,13 +35,6 @@ use crate::env::env;
 use crate::registry::{self};
 use crate::settings::SettingsHandler;
 
-/// Number of 6-row bands backing the live game board (42 rows).
-const BOARD_BANDS: usize = 7;
-/// The persistent solver-side game state kept for the live room.
-type BotGame = Game<BOARD_BANDS>;
-
-
-
 /// A join or create target for the bot.
 #[derive(Debug, Clone)]
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]
@@ -61,8 +45,6 @@ pub enum Target {
 
 /// The bot struct, containing the game state, configuration, client, and event handling.
 pub struct Bot {
-    game: Mutex<BotGame>,
-    weights: Simple,
     /// The triangle client used to connect to the server and handle events.
     pub client: Client,
     /// The bot's configuration, including pieces per second (PPS), burst mode, and finesse style.
@@ -113,18 +95,12 @@ impl From<std::io::Error> for BotError {
     }
 }
 
-/// Appends `n` shuffled 7-bags to the end of the queue.
-fn fill(queue: &mut Vec<Piece>, rng: &mut Rng, n: usize) {
-    for _ in 0..n {
-        let mut slice = RngKind::Bag7.slice();
-        rng.shuffle_array(&mut slice);
-        queue.extend_from_slice(&slice);
-    }
-}
-
 impl Bot {
     /// Creates a new bot instance, connecting to the server and joining or creating a room based on the given target.
-    pub async fn new(target: Target, global_config: crate::settings::Config) -> Result<Arc<Self>, BotError> {
+    pub async fn new(
+        target: Target,
+        global_config: crate::settings::Config,
+    ) -> Result<Arc<Self>, BotError> {
         let client = Client::new(ClientOptions {
             game: Some(triangle::classes::GameOptions {
                 handling: Some(CONFIG.handling),
@@ -174,24 +150,8 @@ impl Bot {
         registry.register(Box::new(registry::controls::burst_command));
         registry.register(Box::new(registry::controls::finesse_command));
 
-        let weights =
-            serde_json::from_str::<Simple>(&std::fs::read_to_string(env().weights.clone())?)
-                .map_err(|e| BotError::Io(e.into()))?;
-
         let bot = Arc::new(Bot {
             global_config,
-            // Real seeding happens once the room's queue seed is known, on round start.
-            game: Mutex::new(Game {
-                board: Board::EMPTY,
-                hold: None,
-                queue: Vec::new(),
-                garbage_queue: GarbageQueue::new(),
-                b2b_count: None,
-                combo_count: None,
-                ruleset: SEASON_2,
-                rng: Rng::new(),
-            }),
-            weights,
             client,
             settings: SettingsHandler::new(),
             config: RwLock::new(Config {

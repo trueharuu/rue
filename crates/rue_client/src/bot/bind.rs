@@ -4,12 +4,6 @@ use triangle::engine::queue::bag::BagType;
 use triangle::types::events::recv;
 use triangle::types::room::Bracket;
 
-use rue_core::board::Board;
-use rue_core::game::Game;
-use rue_core::game::garbage::GarbageQueue;
-use rue_core::game::ruleset::SEASON_2;
-use rue_core::rng::Rng;
-
 use crate::bot::state::GameState;
 use crate::command::context::Context;
 use crate::command::traits::Restriction;
@@ -21,8 +15,6 @@ use crate::utils::FAILURE;
 use crate::utils::WARNING;
 
 use super::Bot;
-use super::fill;
-
 impl Bot {
     pub(super) async fn bind(self: &Arc<Self>) {
         let b = self.clone();
@@ -77,14 +69,19 @@ impl Bot {
 
             if data.content == format!("@{bot_username}") {
                 if let Some(room) = b.client.room() {
-                    room.chat(&format!("My prefix is {}", b.global_config.prefix)).await.ok();
+                    room.chat(&format!("My prefix is {}", b.global_config.prefix))
+                        .await
+                        .ok();
                 }
                 return;
             }
 
             let content = if data.content.starts_with(&format!("@{bot_username} ")) {
-                data.content
-                    .replacen(&format!("@{bot_username} "), b.global_config.prefix.as_str(), 1)
+                data.content.replacen(
+                    &format!("@{bot_username} "),
+                    b.global_config.prefix.as_str(),
+                    1,
+                )
             } else {
                 data.content.clone()
             }
@@ -174,14 +171,7 @@ impl Bot {
                 if data.players.iter().any(|p| p.0 == b.client.user.id)
                     && let Some(room) = b.client.room()
                 {
-                    let pickable = ['g', 'l', 'h', 'f'];
-                    let mut rng = Rng::new();
-                    let mut glhf = String::new();
-                    for _ in 0..18 {
-                        let idx = (rng.next() as usize) % pickable.len();
-                        glhf.push(pickable[idx]);
-                    }
-                    room.chat(&format!("gl{glhf}")).await.ok();
+                    room.chat("glhf").await.ok();
                 }
             });
 
@@ -202,26 +192,6 @@ impl Bot {
                 if !matches!(engine.queue.kind, BagType::Bag7) {
                     eprintln!("unsupported bag type: {:?}", engine.queue.kind);
                     return;
-                }
-
-                {
-                    let mut rng = Rng::new_seeded(engine.queue.seed as i32);
-                    let mut queue = Vec::new();
-                    fill(&mut queue, &mut rng, b.global_config.queue_buffer.div_ceil(7).max(1));
-                    println!("{:?}", engine.queue.as_slice());
-                    println!("{queue:?}");
-
-                    let mut game = b.game.lock().await;
-                    *game = Game {
-                        board: Board::EMPTY,
-                        hold: None,
-                        queue,
-                        garbage_queue: GarbageQueue::new(),
-                        b2b_count: None,
-                        combo_count: None,
-                        ruleset: SEASON_2,
-                        rng,
-                    };
                 }
 
                 {

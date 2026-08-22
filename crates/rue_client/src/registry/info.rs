@@ -32,14 +32,16 @@ pub async fn help(ctx: &mut Context<'_>, name: Option<String>) -> anyhow::Result
 
     if let Some(name) = name {
         let Some(cmd) = ctx.bot.registry.find(&name) else {
-            ctx.reply("Command not found").await?;
+            ctx.reply("not found").await?;
             return Ok(());
         };
+
         let meta = cmd.metadata();
         if meta.category == Category::Dev && !show_dev {
-            ctx.reply("Command not found").await?;
+            ctx.reply("not found").await?;
             return Ok(());
         }
+
         let alts = if meta.aliases.is_empty() {
             String::new()
         } else {
@@ -75,16 +77,10 @@ pub async fn help(ctx: &mut Context<'_>, name: Option<String>) -> anyhow::Result
             .push(entry);
     }
 
-    let mut out = String::from("Available commands:");
+    let mut out = String::new();
     for (category, mut commands) in by_category {
         commands.sort();
-        let _ = write!(
-            out,
-            "\n{}{}:\n  {}",
-            category[..1].to_uppercase(),
-            &category[1..],
-            commands.join(", ")
-        );
+        let _ = write!(out, "\n{category}:\n  {}", commands.join(", "));
     }
 
     ctx.reply(&out).await?;

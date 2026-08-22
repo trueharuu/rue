@@ -1,150 +1,134 @@
-//! ANSI terminal rendering helpers for boards and placements.
+//! Rendering utilities.
 
 use crate::board::Board;
 use crate::header::WIDTH;
 use crate::piece::Piece;
 use crate::placement::Move;
 
-#[must_use]
-/// Returns the ANSI glyph used for a filled board cell.
-pub fn cell() -> &'static str {
-    "\x1b[48;2;127;127;127m  \x1b[0m"
-}
-
-#[must_use]
-/// Returns the ANSI glyph used for an empty board cell.
-pub fn empty_cell() -> &'static str {
-    "\x1b[0m  \x1b[0m"
-}
-
-#[must_use]
-/// Returns the ANSI glyph used to render a cell for a specific piece color.
-pub fn colored_cell(p: Piece) -> &'static str {
-    match p {
-        Piece::I => "\x1b[48;2;127;191;255m  \x1b[0m",
-        Piece::J => "\x1b[48;2;127;127;255m  \x1b[0m",
-        Piece::L => "\x1b[48;2;255;191;127m  \x1b[0m",
-        Piece::O => "\x1b[48;2;255;255;127m  \x1b[0m",
-        Piece::S => "\x1b[48;2;127;255;127m  \x1b[0m",
-        Piece::Z => "\x1b[48;2;255;127;127m  \x1b[0m",
-        Piece::T => "\x1b[48;2;255;127;255m  \x1b[0m",
-    }
-}
-
-/// Horizontal border segment.
-pub const HORIZ: &str = "──";
-/// Top-left border corner.
+/// Vertical bar.
+pub const BAR: &str = "│";
+/// Top-left corner.
 pub const TOP_LEFT: &str = "┌";
-/// Top-right border corner.
+/// Top-right corner.
 pub const TOP_RIGHT: &str = "┐";
-/// Bottom-left border corner.
+/// Bottom-left corner.
 pub const BOTTOM_LEFT: &str = "└";
-/// Bottom-right border corner.
+/// Bottom-right corner.
 pub const BOTTOM_RIGHT: &str = "┘";
-/// Vertical border segment.
-pub const VERT: &str = "│";
+/// A single filled cell.
+pub const CELL: &str = "\x1b[48;2;127;127;127m  \x1b[0m";
+/// A single empty cell.
+pub const EMPTY: &str = "  ";
 
+/// Renders the cell for a given [`Piece`] color.
+#[inline]
 #[must_use]
-/// Renders a board to an ANSI string.
-pub fn render<const N: usize>(board: Board<N>) -> String {
+pub fn cell(piece: Piece, i: &str) -> String {
+    match piece {
+        Piece::T => format!("\x1b[48;2;255;127;255m{i}\x1b[0m"),
+        Piece::I => format!("\x1b[48;2;127;255;255m{i}\x1b[0m"),
+        Piece::J => format!("\x1b[48;2;127;127;255m{i}\x1b[0m"),
+        Piece::L => format!("\x1b[48;2;255;191;127m{i}\x1b[0m"),
+        Piece::O => format!("\x1b[48;2;255;255;127m{i}\x1b[0m"),
+        Piece::S => format!("\x1b[48;2;127;255;127m{i}\x1b[0m"),
+        Piece::Z => format!("\x1b[48;2;255;127;127m{i}\x1b[0m"),
+    }
+}
+
+/// Renders a single board.
+#[inline]
+#[must_use]
+pub fn board<const N: usize>(board: &Board<N>) -> String {
     let mut s = String::new();
     s.push_str(TOP_LEFT);
-    for _ in 0..WIDTH {
-        s.push_str(HORIZ);
-    }
+    s.push_str(&"─".repeat(WIDTH as usize * 2));
     s.push_str(TOP_RIGHT);
     s.push('\n');
-    for y in (0..board.max_y() + 4).rev() {
-        s.push_str(VERT);
+    for y in (0..(board.height() + 2).max(6)).rev() {
+        s.push_str(BAR);
         for x in 0..WIDTH {
-            if board.get(x, y) {
-                s.push_str(cell());
-            } else {
-                s.push_str(empty_cell());
-            }
+            s.push_str(if board.get(x, y) { CELL } else { EMPTY });
         }
-        s.push_str(VERT);
+        s.push_str(BAR);
         s.push('\n');
     }
+
     s.push_str(BOTTOM_LEFT);
-    for _ in 0..WIDTH {
-        s.push_str(HORIZ);
-    }
+    s.push_str(&"─".repeat(WIDTH as usize * 2));
     s.push_str(BOTTOM_RIGHT);
+    s.push('\n');
+
     s
 }
 
+/// Renders two boards, showing the overlap between them.
+#[inline]
 #[must_use]
-/// Renders a board with one highlighted placement overlay.
-pub fn render_with<const N: usize>(board: Board<N>, placement: &Move) -> String {
-    use std::fmt::Write;
+pub fn merge<const N: usize, const M: usize>(red: &Board<N>, blue: &Board<M>) -> String {
     let mut s = String::new();
     s.push_str(TOP_LEFT);
-    for _ in 0..WIDTH {
-        s.push_str(HORIZ);
-    }
+    s.push_str(&"─".repeat(WIDTH as usize * 2));
     s.push_str(TOP_RIGHT);
     s.push('\n');
-    for y in (0..board.max_y() + 4).rev() {
-        s.push_str(VERT);
+    let height = red.height().max(blue.height());
+    for y in (0..(height + 4).max(6)).rev() {
+        s.push_str(BAR);
         for x in 0..WIDTH {
-            if board.get(x, y) {
-                s.push_str(cell());
-            } else if placement
-                .cells()
-                .into_iter()
-                .any(|(cx, cy)| cx == x && cy == y)
-            {
-                s.push_str(colored_cell(placement.piece()));
+            s.push_str(&if red.get(x, y) && blue.get(x, y) {
+                cell(Piece::T, "  ")
+            } else if red.get(x, y) {
+                cell(Piece::Z, "  ")
+            } else if blue.get(x, y) {
+                cell(Piece::I, "  ")
             } else {
-                s.push_str(empty_cell());
-            }
+                EMPTY.to_string()
+            });
         }
-        s.push_str(VERT);
+        s.push_str(BAR);
         s.push('\n');
     }
+
     s.push_str(BOTTOM_LEFT);
-    for _ in 0..WIDTH {
-        s.push_str(HORIZ);
-    }
+    s.push_str(&"─".repeat(WIDTH as usize * 2));
     s.push_str(BOTTOM_RIGHT);
     s.push('\n');
-    let _ = write!(s, "{placement:?}");
+
     s
 }
 
-/// Renders two boards overlayed on top of each other.
+/// Renders a board with a placement applied.
+#[inline]
 #[must_use]
-pub fn merge<const N: usize>(board_a: Board<N>, board_b: Board<N>) -> String {
+pub fn placement<const N: usize>(board: &Board<N>, mv: &Move) -> String {
     let mut s = String::new();
     s.push_str(TOP_LEFT);
-    for _ in 0..WIDTH {
-        s.push_str(HORIZ);
-    }
+    s.push_str(&"─".repeat(WIDTH as usize * 2));
     s.push_str(TOP_RIGHT);
     s.push('\n');
-    for y in (0..board_a.max_y().max(board_b.max_y()) + 4).rev() {
-        s.push_str(VERT);
+    let cells = mv.cells();
+    for y in (0..(board.height() + 4).max(6)).rev() {
+        s.push_str(BAR);
         for x in 0..WIDTH {
-            let a = board_a.get(x, y);
-            let b = board_b.get(x, y);
-            if a && b {
-                s.push_str(colored_cell(Piece::T));
-            } else if a {
-                s.push_str(colored_cell(Piece::Z));
-            } else if b {
-                s.push_str(colored_cell(Piece::I));
+            s.push_str(&if cells.contains(&(x, y)) {
+                if board.get(x, y) {
+                    cell(mv.piece(), "--")
+                } else {
+                    cell(mv.piece(), "  ")
+                }
+            } else if board.get(x, y) {
+                CELL.to_string()
             } else {
-                s.push_str(empty_cell());
-            }
+                EMPTY.to_string()
+            });
         }
-        s.push_str(VERT);
+        s.push_str(BAR);
         s.push('\n');
     }
+
     s.push_str(BOTTOM_LEFT);
-    for _ in 0..WIDTH {
-        s.push_str(HORIZ);
-    }
+    s.push_str(&"─".repeat(WIDTH as usize * 2));
     s.push_str(BOTTOM_RIGHT);
+    s.push('\n');
+
     s
 }

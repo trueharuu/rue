@@ -1,15 +1,12 @@
 [workspace]
 resolver = "3"
 members = [
+    "crates/rue_client",
     "crates/rue_core",
-    "crates/rue_eval",
+    "crates/rue_macro",
     "crates/rue_nav",
     "crates/rue_perft",
-    "crates/rue_search",
-    "crates/rue_solo",
-    "crates/rue_tuner",
-    "crates/rue_client",
-    "crates/rue_macro",
+    "crates/sandbox",
 ]
 
 [workspace.lints.clippy]
@@ -26,7 +23,9 @@ cast_precision_loss = { level = "allow", priority = 2 }
 cast_possible_wrap = { level = "allow", priority = 2 }
 cast_sign_loss = { level = "allow", priority = 2 }
 too_many_lines = { level = "allow", priority = 2 }
+too_many_arguments = { level = "allow", priority = 2 }
+inline_always = { level = "allow", priority = 2 }
 # missing_docs_in_private_items = { level = "warn", priority = 2 }
 
 [workspace.lints.rust]
-missing_docs = { level = "warn" }
+# missing_docs = { level = "warn" }

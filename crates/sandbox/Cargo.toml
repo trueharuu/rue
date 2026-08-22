@@ -1,14 +1,11 @@
 [package]
-name = "rue_tuner"
+name = "sandbox"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 rue_core = { version = "0.1.0", path = "../rue_core" }
-rue_eval = { version = "0.1.0", path = "../rue_eval" }
 rue_nav = { version = "0.1.0", path = "../rue_nav" }
-rue_search = { version = "0.1.0", path = "../rue_search" }
-rayon = "1.10"
 
 [lints]
 workspace = true

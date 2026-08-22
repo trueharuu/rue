@@ -1,24 +1,21 @@
-//! Tetromino identifiers and per-piece geometric helpers.
+//! Pieces, their filled cells, and their rotation data.
 
 use std::fmt::Display;
 use std::marker::ConstParamTy;
+use std::str::FromStr;
 
-/// Tetromino kind encoded as a compact integer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, ConstParamTy)]
+use crate::rotation::Rotation;
+
+/// A single tetromino type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ConstParamTy)]
+#[allow(missing_docs)]
 pub enum Piece {
-    /// T tetromino.
     T = 0,
-    /// I tetromino.
     I = 1,
-    /// J tetromino.
     J = 2,
-    /// L tetromino.
     L = 3,
-    /// O tetromino.
     O = 4,
-    /// S tetromino.
     S = 5,
-    /// Z tetromino.
     Z = 6,
 }
 
@@ -36,10 +33,11 @@ impl Piece {
         Piece::Z,
     ];
 
-    #[must_use]
     /// Converts a compact integer to a piece, returning `None` when out of range.
-    pub const fn from_u8(n: u8) -> Option<Piece> {
-        match n {
+    #[inline]
+    #[must_use]
+    pub const fn from_u8(word: u8) -> Option<Self> {
+        match word {
             0 => Some(Piece::T),
             1 => Some(Piece::I),
             2 => Some(Piece::J),
@@ -51,102 +49,9 @@ impl Piece {
         }
     }
 
-    #[must_use]
-    /// Returns `true` for pieces with 180-degree rotational symmetry groups.
-    pub const fn group2(self) -> bool {
-        matches!(self, Piece::I | Piece::S | Piece::Z)
-    }
-
-    #[must_use]
-    /// Returns `true` for pieces with full 4-state rotational symmetry groups.
-    pub const fn group3(self) -> bool {
-        matches!(self, Piece::T | Piece::L | Piece::J)
-    }
-
-    #[must_use]
-    /// Number of distinct canonical rotations for this piece.
-    pub const fn canonical_rotations(self) -> usize {
-        if matches!(self, Piece::O) {
-            1
-        } else if self.group2() {
-            2
-        } else {
-            4
-        }
-    }
-
-    #[must_use]
-    /// Number of rotation states explored by search for this piece.
-    pub const fn search_size(self) -> usize {
-        if matches!(self, Piece::O) { 1 } else { 4 }
-    }
-
-    #[must_use]
-    /// Maps an arbitrary rotation index to its canonical representative.
-    pub const fn canonical_rotation(self, r: usize) -> usize {
-        if matches!(self, Piece::O) {
-            0
-        } else if self.group2() {
-            r & 1
-        } else {
-            r
-        }
-    }
-
-    #[must_use]
-    /// Returns translation offsets needed to align canonical rotation frames.
-    pub const fn canonical_offset(self, r: usize) -> (i32, i32) {
-        if matches!(self, Piece::I) {
-            if r == 2 {
-                return (1, 0);
-            }
-            if r == 3 {
-                return (0, -1);
-            }
-        }
-        if matches!(self, Piece::S | Piece::Z) {
-            if r == 2 {
-                return (0, 1);
-            }
-            if r == 3 {
-                return (1, 0);
-            }
-        }
-        (0, 0)
-    }
-
-    #[must_use]
-    /// Generation height adjustment used by placement generation.
-    pub const fn h_gen(self) -> i32 {
-        if matches!(self, Piece::I | Piece::T) {
-            2
-        } else if matches!(self, Piece::O) {
-            0
-        } else {
-            1
-        }
-    }
-
-    #[must_use]
-    /// Spawn height adjustment used by spawn placement logic.
-    pub const fn h_spawn(self) -> i32 {
-        if matches!(self, Piece::I) {
-            2
-        } else if matches!(self, Piece::O) {
-            0
-        } else {
-            1
-        }
-    }
-
-    #[must_use]
-    /// Placement height adjustment used by grounded placement logic.
-    pub const fn h_place(self) -> i32 {
-        2 + (matches!(self, Piece::I) as i32) - (matches!(self, Piece::O) as i32)
-    }
-
-    #[must_use]
     /// Three non-origin mino offsets for the spawn orientation.
+    #[inline]
+    #[must_use]
     pub const fn base_cells(self) -> [(i8, i8); 3] {
         match self {
             Piece::I => [(-1, 0), (1, 0), (2, 0)],
@@ -158,10 +63,109 @@ impl Piece {
             Piece::Z => [(-1, 1), (0, 1), (1, 0)],
         }
     }
+
+    /// Maps from an arbitrary [`Rotation`] to its canonical representative, if this piece
+    /// has symmetry.
+    #[inline]
+    #[must_use]
+    pub const fn canonical_rotation(self, rot: Rotation) -> Rotation {
+        match (self, rot) {
+            (Piece::O, _) | (Piece::I | Piece::S | Piece::Z, Rotation::South) => Rotation::North,
+            (Piece::I | Piece::S | Piece::Z, Rotation::West) => Rotation::East,
+            _ => rot,
+        }
+    }
+
+    /// Returns `true` for pieces with 90-degree rotational symmetry.
+    #[inline]
+    #[must_use]
+    pub const fn group1(self) -> bool {
+        matches!(self, Piece::O)
+    }
+
+    /// Returns `true` for pieces with 180-degree rotational symmetry.
+    #[inline]
+    #[must_use]
+    pub const fn group2(self) -> bool {
+        matches!(self, Piece::I | Piece::S | Piece::Z)
+    }
+
+    /// Returns `true` for pieces with no rotational symmetries.
+    #[inline]
+    #[must_use]
+    pub const fn group4(self) -> bool {
+        matches!(self, Piece::T | Piece::J | Piece::L)
+    }
+
+    /// Returns the number of canonical rotations for this piece.
+    #[inline]
+    #[must_use]
+    pub const fn groups(self) -> usize {
+        match self {
+            Piece::O => 1,
+            Piece::I | Piece::S | Piece::Z => 2,
+            Piece::T | Piece::J | Piece::L => 4,
+        }
+    }
+
+    /// Returns the total search size for this piece.
+    #[inline]
+    #[must_use]
+    pub const fn search_size(self) -> usize {
+        match self {
+            Self::O => 1,
+            _ => 4,
+        }
+    }
+
+    /// Returns translation offsets needed to align canonical rotation frames.
+    #[inline]
+    #[must_use]
+    pub const fn canonical_offset(self, r: Rotation) -> (i32, i32) {
+        match (self, r) {
+            (Piece::I, Rotation::West) => (0, -1),
+            (Piece::S | Piece::Z, Rotation::South) => (0, 1),
+            (Piece::I, Rotation::South) | (Piece::S | Piece::Z, Rotation::West) => (1, 0),
+            _ => (0, 0),
+        }
+    }
+
+    /// Spawn height adjustment used by spawn placement logic.
+    #[inline]
+    #[must_use]
+    pub const fn h_spawn(self) -> i32 {
+        if matches!(self, Piece::I) {
+            2
+        } else if matches!(self, Piece::O) {
+            0
+        } else {
+            1
+        }
+    }
+
+    /// Placement height adjustment used by grounded placement logic.
+    #[inline]
+    #[must_use]
+    pub const fn h_place(self) -> i32 {
+        2 + (matches!(self, Piece::I) as i32) - (matches!(self, Piece::O) as i32)
+    }
+
+    /// Generation height adjustment used by placement generation.
+    #[inline]
+    #[must_use]
+    pub const fn h_gen(self) -> i32 {
+        if matches!(self, Piece::I | Piece::T) {
+            2
+        } else if matches!(self, Piece::O) {
+            0
+        } else {
+            1
+        }
+    }
 }
 
 impl Display for Piece {
-    /// Formats the piece as its single-letter tetromino symbol.
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Piece::T => write!(f, "T"),
@@ -171,6 +175,23 @@ impl Display for Piece {
             Piece::O => write!(f, "O"),
             Piece::S => write!(f, "S"),
             Piece::Z => write!(f, "Z"),
+        }
+    }
+}
+
+impl FromStr for Piece {
+    type Err = String;
+    #[inline]
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "T" => Ok(Piece::T),
+            "I" => Ok(Piece::I),
+            "J" => Ok(Piece::J),
+            "L" => Ok(Piece::L),
+            "O" => Ok(Piece::O),
+            "S" => Ok(Piece::S),
+            "Z" => Ok(Piece::Z),
+            _ => Err(format!("invalid piece: {s}")),
         }
     }
 }

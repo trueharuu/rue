@@ -1,96 +1,129 @@
-//! Compact move packing utilities and cell reconstruction helpers.
+//! Concrete piece placements.
 
 use std::fmt::Debug;
+use std::fmt::Display;
 
-use crate::header::rot_cell;
+use crate::data::rot_cell;
+use crate::header::WIDTH;
 use crate::piece::Piece;
 use crate::rotation::Rotation;
 use crate::spin::Spin;
 
-/// A move is a 32-bit integer with the following layout:
-/// Piece (3 bits) | Rotation (2 bits) | X (4 bits) | Y (8 bits) | Spin (2 bits) | Unused (13 bits)
+/// A singular location and rotation of a piece.
+/// Moves have 5 fields:
+/// - `piece`: one of [`Piece`]. Spans 3 bits.
+/// - `x`: horizontal position bounded to `0..10`. Spans 4 bits.
+/// - `y`: vertical position bounded to `0..64`. Spans 6 bits.
+/// - `rotation`: one of [`Rotation`]. Spans 2 bits.
+/// - `spin`: one of [`Spin`]. Spans 2 bits.
+///
+/// In total, a single move can be packed into exactly 17 bits (with the most significant
+/// bits always 0).
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Move(u32);
 
+const PIECE_SHIFT: u32 = 0;
+const X_SHIFT: u32 = 3;
+const Y_SHIFT: u32 = 3 + 4;
+const ROT_SHIFT: u32 = 3 + 4 + 6;
+const SPIN_SHIFT: u32 = 3 + 4 + 6 + 2;
+const PIECE_MASK: u32 = 0b111;
+const X_MASK: u32 = 0b1111;
+const Y_MASK: u32 = 0b11_1111;
+const ROT_MASK: u32 = 0b11;
+const SPIN_MASK: u32 = 0b11;
+
 impl Move {
-    /// Returns the raw 32-bit representation of the move.
-    #[must_use]
+    /// Returns a null move. This is likely invalid.
     #[inline]
-    pub const fn raw(&self) -> u32 {
+    #[must_use]
+    pub const fn null() -> Self {
+        Self(0)
+    }
+
+    /// Returns the raw 32-bit representation of the move.
+    #[inline]
+    #[must_use]
+    pub const fn raw(self) -> u32 {
         self.0
     }
 
-    /// Creates a move from a raw 32-bit representation.
+    /// Creates a [`Move`] from the raw 32-bit representation.
     ///
     /// # Safety
-    /// The raw value must be a valid move representation, typically achieved from [`Move::raw`].
+    /// The raw value must be a valid move.
+    #[inline]
     #[must_use]
     pub const unsafe fn from_raw(raw: u32) -> Self {
         Self(raw)
     }
 
+    /// Creates a new [`Move`] from the sparse fields.
     #[inline]
     #[must_use]
-    /// Packs move fields into a compact 32-bit representation.
-    pub const fn new(piece: Piece, rotation: Rotation, x: i32, y: i32, spin: Spin) -> Self {
+    pub const fn new(piece: Piece, x: i32, y: i32, rotation: Rotation, spin: Spin) -> Self {
+        debug_assert!(x >= 0 && x < WIDTH && y >= 0);
         Self(
-            ((piece as u32) << 29)
-                | ((rotation as u32) << 27)
-                | (((x as u32) & 0xF) << 23)
-                | (((y as u32) & 0xFF) << 15)
-                | ((spin as u32) << 13),
+            piece as u32
+                | ((x as u32) << X_SHIFT)
+                | ((y as u32) << Y_SHIFT)
+                | ((rotation as u32) << ROT_SHIFT)
+                | ((spin as u32) << SPIN_SHIFT),
         )
     }
 
+    /// Decodes the [`Piece`] component.
+    ///
+    /// # Panics
+    /// Panics if the piece is out of range (0..7). This should never happen if the
+    /// [`Move`] was created with [`Move::new`].
     #[inline]
     #[must_use]
-    /// Decodes the piece component.
-    pub const fn piece(&self) -> Piece {
-        Piece::from_u8((self.0 >> 29) as u8).unwrap()
+    pub const fn piece(self) -> Piece {
+        Piece::from_u8(((self.0 >> PIECE_SHIFT) & PIECE_MASK) as u8).unwrap()
     }
 
+    /// Decodes the x-position component.
     #[inline]
     #[must_use]
-    /// Decodes the rotation component.
-    pub const fn rotation(&self) -> Rotation {
-        match (self.0 >> 27) & 0x3 {
-            0 => Rotation::North,
-            1 => Rotation::East,
-            2 => Rotation::South,
-            _ => Rotation::West,
-        }
+    pub const fn x(self) -> i32 {
+        ((self.0 >> X_SHIFT) & X_MASK) as i32
     }
 
+    /// Decodes the y-position component.
     #[inline]
     #[must_use]
-    /// Decodes the x-coordinate component.
-    pub const fn x(&self) -> i32 {
-        ((self.0 >> 23) & 0xF) as i32
+    pub const fn y(self) -> i32 {
+        ((self.0 >> Y_SHIFT) & Y_MASK) as i32
     }
 
+    /// Decodes the [`Rotation`] component.
     #[inline]
     #[must_use]
-    /// Decodes the y-coordinate component.
-    pub const fn y(&self) -> i32 {
-        ((self.0 >> 15) & 0xFF) as i32
+    pub const fn rotation(self) -> Rotation {
+        Rotation::from_u8(((self.0 >> ROT_SHIFT) & ROT_MASK) as u8)
     }
 
+    /// Decodes the [`Spin`] component.
     #[inline]
     #[must_use]
-    /// Decodes the spin classification component.
-    pub const fn spin(&self) -> Spin {
-        match (self.0 >> 13) & 0x3 {
-            0 => Spin::None,
+    pub const fn spin(self) -> Spin {
+        let val = ((self.0 >> SPIN_SHIFT) & SPIN_MASK) as u8;
+        match val {
             1 => Spin::Mini,
             2 => Spin::Full,
-            _ => unreachable!(),
+            // this should be `0` with `_` handled separately with an
+            // `unreachable!()`, but the only remaining branch is `0 | 3`, it's safe to
+            // just discard the invalid value
+            _ => Spin::None,
         }
     }
 
+    /// The four absolute cells this placement would reside in.
+    /// It is not guaranteed that these cells are within `(0..4, 0..64)`.
     #[inline]
     #[must_use]
-    /// Expands the placement into four absolute board cells.
-    pub const fn cells(&self) -> [(i32, i32); 4] {
+    pub const fn cells(self) -> [(i32, i32); 4] {
         let p = self.piece();
         let r = self.rotation() as usize;
         let x = self.x();
@@ -111,36 +144,66 @@ impl Move {
 
     /// Returns the canonical form of this [`Move`].
     ///
-    /// Symmetrical [`Move`]s can have the same [`Move::cells`] result, with different values:
+    /// Symmetrical [`Move`]s can have the same [`Move::cells`] result, with different
+    /// values:
     /// - [`Piece::T`], [`Piece::J`], and [`Piece::L`] has 1 canonical state
     /// - [`Piece::I`], [`Piece::S`], and [`Piece::Z`] have 2 canonical states
     /// - [`Piece::O`] has 1 canonical state
     #[inline]
     #[must_use]
-    pub const fn canonicalize(&self) -> Self {
+    pub const fn canonicalize(self) -> Self {
         let p = self.piece();
         let r = self.rotation();
-        let cr = Rotation::from(p.canonical_rotation(r as usize) as u8);
-        if p.group3()
-            || r == cr
-        {
-            *self
+        let cr = p.canonical_rotation(r);
+
+        if p.group4() || (r as u8 == cr as u8) {
+            self
         } else {
-            let (dx, dy) = p.canonical_offset(r as usize);
-            Self::new(p, cr, self.x() - dx, self.y() - dy, self.spin())
+            let (dx, dy) = p.canonical_offset(r);
+            Self::new(
+                p,
+                self.x().saturating_sub(dx),
+                self.y().saturating_sub(dy),
+                cr,
+                self.spin(),
+            )
         }
     }
 }
 
 impl Debug for Move {
-    /// Formats the move as a tuple of decoded fields.
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("Move")
             .field(&self.piece())
-            .field(&self.rotation())
             .field(&self.x())
             .field(&self.y())
+            .field(&self.rotation())
             .field(&self.spin())
             .finish()
+    }
+}
+
+impl Display for Move {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}:{}{}{}",
+            self.piece(),
+            self.x(),
+            self.y(),
+            match self.rotation() {
+                Rotation::North => "N",
+                Rotation::East => "E",
+                Rotation::South => "S",
+                Rotation::West => "W",
+            },
+            match self.spin() {
+                Spin::None => "n",
+                Spin::Mini => "m",
+                Spin::Full => "f",
+            }
+        )
     }
 }

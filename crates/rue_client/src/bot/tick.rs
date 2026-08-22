@@ -1,20 +1,13 @@
-use rue_core::game::ruleset::SEASON_2_HANDLING;
-use rue_core::render;
-use rue_nav::pathfinder::input::Input;
+use rue_nav::input::Input;
 use triangle::Engine;
 use triangle::types::game::Key;
 use triangle::types::game::tick;
-
-use rue_nav::pathfinder;
-use rue_search::SearchConfig;
-use rue_search::beam_search;
 
 use crate::bot::state::Finesse;
 use crate::utils::BotMove;
 use crate::utils::{self};
 
 use super::Bot;
-use super::fill;
 
 /// A strictly-increasing frame counter that can represent subframes as tenths of a frame.
 struct FrameCounter(f64);
@@ -48,10 +41,7 @@ impl Bot {
     fn keypress_duration(m: BotMove, engine: &Engine) -> f64 {
         if matches!(m, BotMove::Path(Input::SoftDrop)) {
             0.1
-        } else if matches!(
-            m,
-            BotMove::Path(Input::DasLeft | Input::DasRight)
-        ) {
+        } else if matches!(m, BotMove::Path(Input::DasLeft | Input::DasRight)) {
             engine.handling.das + 0.1
         } else {
             0.0
@@ -109,12 +99,7 @@ impl Bot {
                     .count();
                 let das_count = raw
                     .iter()
-                    .filter(|m| {
-                        matches!(
-                            m,
-                            BotMove::Path(Input::DasLeft | Input::DasRight)
-                        )
-                    })
+                    .filter(|m| matches!(m, BotMove::Path(Input::DasLeft | Input::DasRight)))
                     .count();
                 let time_per_press = ((time_to_next as f64
                     - soft_drop_count as f64 * 0.1
@@ -129,10 +114,7 @@ impl Bot {
 
                 for m in raw {
                     let delay = time_per_press.max(0.0);
-                    let is_das = matches!(
-                        m,
-                        BotMove::Path(Input::DasLeft | Input::DasRight)
-                    );
+                    let is_das = matches!(m, BotMove::Path(Input::DasLeft | Input::DasRight));
                     let arr_time = if is_das {
                         let x_before = sim_falling.x();
                         if matches!(m, BotMove::Path(Input::DasLeft)) {
@@ -165,9 +147,7 @@ impl Bot {
                     let prev_frame = frame.0;
                     frame.add(delay + duration);
 
-                    if matches!(m, BotMove::Path(Input::SoftDrop))
-                        && frame.as_f64() != 0.0
-                    {
+                    if matches!(m, BotMove::Path(Input::SoftDrop)) && frame.as_f64() != 0.0 {
                         frame = frame.max(&FrameCounter((prev_frame + duration).ceil()));
                     }
                 }
@@ -236,11 +216,11 @@ impl Bot {
 
     pub(super) async fn tick(&self, input: tick::In) -> tick::Out {
         if !input.new_garbage.is_empty() {
-            let mut game = self.game.lock().await;
-            let cap = game.ruleset.garbage_absolute_cap;
-            for g in &input.new_garbage {
-                game.garbage_queue.recieve(g.amount, cap);
-            }
+            // let mut game = self.game.lock().await;
+            // let cap = game.ruleset.garbage_absolute_cap;
+            // for g in &input.new_garbage {
+            //     game.garbage_queue.recieve(g.amount, cap);
+            // }
         }
 
         let game_state = {
@@ -307,39 +287,7 @@ impl Bot {
             }
         }
 
-        let raw_keys: Vec<BotMove> = {
-            let mut game = self.game.lock().await;
-            let game = &mut *game;
-            if game.queue.len() < self.global_config.queue_buffer {
-                fill(&mut game.queue, &mut game.rng, 2);
-            }
-
-            let cfg = SearchConfig {
-                beam_width: self.global_config.search_beam_width,
-                depth: self.config.read().await.vision,
-                futility_delta: 0.0,
-                ..SearchConfig::default()
-            };
-
-            match beam_search::<_, { SEASON_2_HANDLING }, _>(game, &cfg, &self.weights) {
-                Some(result) => {
-                    let mv = result.best.root_move;
-
-                    let requires_hold = mv.piece() != game.queue[0];
-                    let inputs =
-                        pathfinder::get_input::<_, { SEASON_2_HANDLING }>(&game.board, mv);
-                    game.tick(mv);
-
-                    let mut raw = Vec::with_capacity(inputs.len() + 1);
-                    if requires_hold {
-                        raw.push(BotMove::Hold);
-                    }
-                    raw.extend(inputs.into_iter().map(BotMove::Path));
-                    raw
-                }
-                None => Vec::new(),
-            }
-        };
+        let raw_keys = vec![BotMove::Path(Input::HardDrop)];
 
         println!("attempting: {raw_keys:?}");
         let keys = self

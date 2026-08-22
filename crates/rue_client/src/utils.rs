@@ -1,7 +1,7 @@
 //! Utility functions for the Rue client.
 
 use rue_core::rng::Rng;
-use rue_nav::pathfinder::input::Input;
+use rue_nav::input::Input;
 use triangle::types::game::Key;
 
 /// A single raw controller action for the current piece: either a hold

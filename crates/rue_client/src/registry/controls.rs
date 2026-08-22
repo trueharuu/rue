@@ -7,11 +7,16 @@ use crate::bot::state::Finesse;
 use crate::command::context::Context;
 use crate::command::traits::Category;
 use crate::command::traits::Restriction;
+use crate::utils::FAILURE;
+use crate::utils::SUCCESS;
+use crate::utils::WARNING;
 
 /// Absolute minimum pieces per second.
 const PPS_MIN: f64 = 0.5;
 /// Absolute maximum pieces per second.
 const PPS_MAX: f64 = 10.0;
+/// Maximum pieces per second for smooth finesse.
+const PPS_SMOOTH_MAX: f64 = 5.0;
 
 /// Kills the bot (from the room)
 #[command(category = Category::Controls, restriction_level = Restriction::Host)]
@@ -26,14 +31,14 @@ pub async fn kill(ctx: &Context<'_>) -> anyhow::Result<()> {
 pub async fn enable(ctx: &Context<'_>, force: Option<String>) -> anyhow::Result<()> {
     let enabled = ctx.bot.state.read().await.enabled.value;
     if enabled {
-        ctx.reply("Gameplay is already enabled.").await?;
+        ctx.reply(&format!("{WARNING} already enabled")).await?;
         return Ok(());
     }
 
     let force = force.as_deref() == Some("force") && ctx.user.level == Restriction::Dev;
 
     let Some(mut room) = ctx.bot.client.room() else {
-        ctx.reply("Not in a room.").await?;
+        ctx.reply(&format!("{WARNING} not in a room")).await?;
         return Ok(());
     };
 
@@ -45,10 +50,12 @@ pub async fn enable(ctx: &Context<'_>, force: Option<String>) -> anyhow::Result<
                 state.enabled.attempt = false;
                 state.enabled.force = force;
             }
-            ctx.reply("Enabled gameplay.").await?;
+
+            ctx.reply(SUCCESS).await?;
         }
         Err(e) => {
-            ctx.reply(&format!("Error switching bracket: {e}")).await?;
+            ctx.reply(&format!("{FAILURE} error switching bracket: {e}"))
+                .await?;
         }
     }
 
@@ -66,22 +73,22 @@ pub async fn disable(ctx: &Context<'_>) -> anyhow::Result<()> {
 
     let enabled = ctx.bot.state.read().await.enabled.value;
     if !enabled {
-        ctx.reply("Gameplay is already disabled.").await?;
+        ctx.reply(&format!("{FAILURE} already disabled")).await?;
         return Ok(());
     }
 
     if let Some(mut room) = ctx.bot.client.room() {
         ctx.bot.state.write().await.enabled.value = false;
         match room.switch(Bracket::Spectator).await {
-            Ok(()) => ctx.reply("Disabled gameplay.").await?,
+            Ok(()) => ctx.reply(SUCCESS).await?,
             Err(_) => {
-                ctx.reply("There was an error disabling gameplay, maybe it's already disabled?")
+                ctx.reply(&format!("{FAILURE} error disabling gameplay"))
                     .await?;
             }
         }
     } else {
         ctx.bot.state.write().await.enabled.value = false;
-        ctx.reply("Disabled gameplay.").await?;
+        ctx.reply(SUCCESS).await?;
     }
 
     Ok(())
@@ -96,31 +103,31 @@ pub async fn restrict(ctx: &Context<'_>, level: String) -> anyhow::Result<()> {
         "host" => Restriction::Host,
         "dev" => Restriction::Dev,
         _ => {
-            ctx.reply(&format!("Invalid restriction level: {level}"))
+            ctx.reply(&format!("{FAILURE} invalid restriction level `{level}`"))
                 .await?;
             return Ok(());
         }
     };
 
     if ctx.user.level == Restriction::Player || ctx.user.level == Restriction::None {
-        ctx.reply("Players cannot change restriction levels.")
-            .await?;
+        ctx.reply(&format!(
+            "{FAILURE} players cannot change restriction levels"
+        ))
+        .await?;
         return Ok(());
     }
 
     if v == Restriction::Dev && ctx.user.level != Restriction::Dev {
-        ctx.reply("This restriction level is locked to developers.")
-            .await?;
+        ctx.reply(&format!(
+            "{FAILURE} this restriction level is locked to developers"
+        ))
+        .await?;
         return Ok(());
     }
 
     ctx.bot.state.write().await.restriction = v;
-    if v == Restriction::None {
-        ctx.reply("Restrictions are now off.").await?;
-    } else {
-        ctx.reply(&format!("Restriction level now set to {level}"))
-            .await?;
-    }
+
+    ctx.reply(SUCCESS).await?;
 
     Ok(())
 }
@@ -130,39 +137,40 @@ pub async fn restrict(ctx: &Context<'_>, level: String) -> anyhow::Result<()> {
 pub async fn pps(ctx: &Context<'_>, speed: Option<f64>) -> anyhow::Result<()> {
     let Some(speed) = speed else {
         let current = ctx.bot.config.read().await.pps;
-        ctx.reply(&format!("Current PPS: {current}.")).await?;
+        ctx.reply(&format!("{current}")).await?;
         return Ok(());
     };
 
-    if speed <= 0.0 || speed.is_nan() {
-        ctx.reply("Invalid pps (must be a positive number)").await?;
+    if speed.is_nan() {
+        ctx.reply(&format!("{FAILURE} invalid pps (not a number)"))
+            .await?;
         return Ok(());
     }
 
     let bypass = ctx.user.level == Restriction::Dev;
     if speed < PPS_MIN && !bypass {
-        ctx.reply(&format!("Invalid pps (less than {PPS_MIN})"))
+        ctx.reply(&format!("{FAILURE} invalid pps (less than {PPS_MIN})"))
             .await?;
         return Ok(());
     }
     if speed > PPS_MAX && !bypass {
-        ctx.reply(&format!("Invalid pps (greater than {PPS_MAX})."))
+        ctx.reply(&format!("{FAILURE} invalid pps (greater than {PPS_MAX})"))
             .await?;
         return Ok(());
     }
 
     let finesse = ctx.bot.config.read().await.finesse;
-    if speed > 5.0 && finesse == Finesse::Smooth {
+    if speed > PPS_SMOOTH_MAX && finesse == Finesse::Smooth {
+        ctx.bot.config.write().await.finesse = Finesse::Instant;
         ctx.reply(&format!(
-            "When finesse is enabled, PPS is capped to 5 PPS, run >finesse instant to unlock a maximum of {PPS_MAX} PPS."
+            "{WARNING} instant finesse enabled for pps above {PPS_SMOOTH_MAX}"
         ))
         .await?;
-        return Ok(());
     }
 
     let rounded = (speed * 1000.0).round() / 1000.0;
     ctx.bot.config.write().await.pps = rounded;
-    ctx.reply(&format!("Set PPS to {rounded}.")).await?;
+    ctx.reply(SUCCESS).await?;
 
     Ok(())
 }
@@ -172,8 +180,7 @@ pub async fn pps(ctx: &Context<'_>, speed: Option<f64>) -> anyhow::Result<()> {
 pub async fn burst(ctx: &Context<'_>, value: Option<String>) -> anyhow::Result<()> {
     let Some(value) = value else {
         let current = ctx.bot.config.read().await.burst;
-        ctx.reply(&format!("Burst: {}.", if current { "on" } else { "off" }))
-            .await?;
+        ctx.reply(if current { "on" } else { "off" }).await?;
         return Ok(());
     };
 
@@ -181,18 +188,16 @@ pub async fn burst(ctx: &Context<'_>, value: Option<String>) -> anyhow::Result<(
         "on" => true,
         "off" => false,
         _ => {
-            ctx.reply("Invalid burst value (must be 'on' or 'off')")
-                .await?;
+            ctx.reply(&format!(
+                "{FAILURE} invalid burst value (must be 'on' or 'off')"
+            ))
+            .await?;
             return Ok(());
         }
     };
 
     ctx.bot.config.write().await.burst = value;
-    ctx.reply(&format!(
-        "Burst is now {}.",
-        if value { "on" } else { "off" }
-    ))
-    .await?;
+    ctx.reply(SUCCESS).await?;
 
     Ok(())
 }
@@ -206,7 +211,7 @@ pub async fn finesse(ctx: &Context<'_>, mode: Option<String>) -> anyhow::Result<
             Finesse::Smooth => "smooth",
             Finesse::Instant => "instant",
         };
-        ctx.reply(&format!("Current finesse mode: {name}.")).await?;
+        ctx.reply(name).await?;
         return Ok(());
     };
 
@@ -214,25 +219,27 @@ pub async fn finesse(ctx: &Context<'_>, mode: Option<String>) -> anyhow::Result<
         "smooth" => Finesse::Smooth,
         "instant" => Finesse::Instant,
         _ => {
-            ctx.reply("Invalid finesse mode (must be 'smooth' or 'instant')")
-                .await?;
+            ctx.reply(&format!(
+                "{FAILURE} invalid finesse mode (must be 'smooth' or 'instant')"
+            ))
+            .await?;
             return Ok(());
         }
     };
 
     if parsed == Finesse::Smooth {
         let speed = ctx.bot.config.read().await.pps;
-        if speed > 5.0 {
-            ctx.reply(
-                "When switching to smooth finesse, PPS is capped to 5 PPS, run >pps 5 to comply.",
-            )
+        if speed > PPS_SMOOTH_MAX {
+            ctx.reply(&format!(
+                "{FAILURE} smooth finesse is not allowed for pps above {PPS_SMOOTH_MAX}"
+            ))
             .await?;
             return Ok(());
         }
     }
 
     ctx.bot.config.write().await.finesse = parsed;
-    ctx.reply(&format!("Set finesse mode to {mode}.")).await?;
+    ctx.reply(SUCCESS).await?;
 
     Ok(())
 }

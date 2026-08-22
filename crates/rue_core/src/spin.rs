@@ -2,8 +2,8 @@
 
 use std::marker::ConstParamTy;
 
-/// T-spin outcome classification for a concrete move.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Spin outcome classification for a concrete [`crate::placement::Move`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ConstParamTy)]
 pub enum Spin {
     /// Not a spin.
     None = 0,
@@ -25,24 +25,18 @@ impl Spin {
 pub enum Spins {
     /// Disable spins entirely.
     None = 0,
-    /// Allow only T-spins.
+    /// Only allow T-spins via 3-corner detection.
     T = 1,
-    /// Allow spins for all pieces, where non-T-spins are classified as [`Spin::Mini`].
-    AllMini = 2,
-    /// Allow spins for all pieces.
-    AllPlus = 3,
-}
-
-impl Spins {
-    /// Whether the policy allows immobility-based spin detection.
-    #[must_use]
-    pub const fn has_immobile(self) -> bool {
-        matches!(self, Spins::AllMini | Spins::AllPlus)
-    }
-
-    /// Whether the policy utilizes 3-corner T-spin detection.
-    #[must_use]
-    pub const fn has_3corner(self) -> bool {
-        matches!(self, Spins::T | Spins::AllPlus | Spins::AllMini)
-    }
+    /// Only allow T-spins via 3-corner detection, plus immobile spins for T pieces marked as [`Spin::Mini`].
+    TPlus = 2,
+    /// [`Spins::T`], plus immobile spins for all non-T pieces, marked as [`Spin::Mini`].
+    AllMini = 3,
+    /// [`Spins::TPlus`], plus immobile spins for all non-T pieces, marked as [`Spin::Mini`].
+    AllMiniPlus = 4,
+    /// [`Spins::T`], plus immobile spins for all non-T pieces, marked as [`Spin::Full`].
+    All = 5,
+    /// [`Spins::TPlus`], plus immobile spins for all non-T pieces, marked as [`Spin::Full`].
+    AllPlus = 6,
+    /// All placements reached via rotation are a spin, marked as [`Spin::Full`].
+    Stupid = 7,
 }

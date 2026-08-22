@@ -1,7 +1,7 @@
-//! Navigation and move-generation utilities built on top of `rue_core`.
+//! Rue navigation library.
 
-#![feature(min_adt_const_params)]
+#![feature(min_adt_const_params, portable_simd)]
+
 pub mod buffer;
-pub mod collision;
+pub mod input;
 pub mod movegen;
-pub mod pathfinder;

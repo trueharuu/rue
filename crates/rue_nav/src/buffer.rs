@@ -1,4 +1,4 @@
-//! Move result buffers grouped by rotation and spin outcome.
+//! Move buffers produced by move generation.
 
 use rue_core::board::Board;
 use rue_core::header::WIDTH;
@@ -7,108 +7,149 @@ use rue_core::placement::Move;
 use rue_core::rotation::Rotation;
 use rue_core::spin::Spin;
 
-/// Result of move generation: landable positions per rotation, per spin type.
+/// Result of move generation. Contains reachable landed positions per rotation, per
+/// spin-type.
 ///
 /// Layout:
-/// - `none[r]`: positions reachable without a final rotation
-/// - `mini[r]`: positions with a mini-spin (or immobility spin)
-/// - `full[r]`: positions with a full spin
-#[derive(Clone, Copy)]
+/// - `none[r]`: positions reachable with no spin
+/// - `mini[r]`: positions reachable with a spin-mini
+/// - `full[r]`: positions reachable with a spin-full
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Moves<const N: usize> {
-    /// The piece that these moves are for.
+    /// The piece for which these moves are for.
     pub piece: Piece,
     /// Landable positions without a final spin classification.
-    pub none: [Board<N>; 4],
+    pub none: [Board<N>; Rotation::NB],
     /// Landable positions classified as mini spins.
-    pub mini: [Board<N>; 4],
+    pub mini: [Board<N>; Rotation::NB],
     /// Landable positions classified as full spins.
-    pub full: [Board<N>; 4],
-    /// All landed positions.
-    pub landed: [Board<N>; 4],
-    /// Positions with at least 3 of 4 corners filled.
-    pub has3: [Board<N>; 4],
-    /// Susbet of `has3` where the two front corners are filled.
-    pub front2: [Board<N>; 4],
-    /// Positions where the piece does not collide with terrain.
-    pub candidates: [Board<N>; 4],
-    /// Landed positions discovered by rotation.
-    pub via_rotation: [Board<N>; 4],
-    /// Landed positions discovered by the 5th rotation kick.
-    pub via_5th_kick: [Board<N>; 4],
-    /// All immobile positions.
-    pub immobile: [Board<N>; 4],
+    pub full: [Board<N>; Rotation::NB],
 }
 
 impl<const N: usize> Moves<N> {
-    /// Empty move buffer with no landable cells in any bucket.
+    /// Creates a new empty `Moves` result for the given piece.
+    #[inline]
     #[must_use]
     pub const fn empty(piece: Piece) -> Self {
         Self {
             piece,
-            none: [Board::EMPTY; 4],
-            mini: [Board::EMPTY; 4],
-            full: [Board::EMPTY; 4],
-            landed: [Board::EMPTY; 4],
-            has3: [Board::EMPTY; 4],
-            candidates: [Board::EMPTY; 4],
-            front2: [Board::EMPTY; 4],
-            via_5th_kick: [Board::EMPTY; 4],
-            via_rotation: [Board::EMPTY; 4],
-            immobile: [Board::EMPTY; 4],
+            none: [Board::empty(); Rotation::NB],
+            mini: [Board::empty(); Rotation::NB],
+            full: [Board::empty(); Rotation::NB],
         }
     }
 
+    /// Inserts a new [`Move`] into the buffer.
+    /// Returns `true` if the move was not already present, `false` otherwise.
     #[inline]
     #[must_use]
-    /// Returns the board bucket for the given `spin` and `rotation` index.
-    pub fn get(&self, spin: Spin, rotation: usize) -> Board<N> {
-        match spin {
-            Spin::None => self.none[rotation],
-            Spin::Mini => self.mini[rotation],
-            Spin::Full => self.full[rotation],
+    pub fn insert(&mut self, mv: Move) -> bool {
+        let r = mv.rotation() as usize;
+        let board = match mv.spin() {
+            Spin::None => &mut self.none[r],
+            Spin::Mini => &mut self.mini[r],
+            Spin::Full => &mut self.full[r],
+        };
+
+        if board.get(mv.x(), mv.y()) {
+            return false;
         }
+
+        board.set(mv.x(), mv.y());
+        true
     }
 
-    #[inline]
-    /// Returns a mutable board bucket for the given `spin` and `rotation` index.
-    pub fn get_mut(&mut self, spin: Spin, rotation: usize) -> &mut Board<N> {
-        match spin {
-            Spin::None => &mut self.none[rotation],
-            Spin::Mini => &mut self.mini[rotation],
-            Spin::Full => &mut self.full[rotation],
-        }
-    }
-
-    /// Iterates all occupied move cells as packed `Move` values for piece `P`.
-    pub fn iter(self) -> impl Iterator<Item = Move> {
-        (0..4).flat_map(move |r| {
-            [Spin::None, Spin::Mini, Spin::Full]
-                .into_iter()
-                .flat_map(move |s| {
-                    let b = self.get(s, r);
-                    (0..Board::<N>::H).flat_map(move |y| {
-                        (0..WIDTH).filter_map(move |x| {
-                            if b.get(x, y) {
-                                Some(Move::new(self.piece, Rotation::from(r as u8), x, y, s))
-                            } else {
-                                None
-                            }
-                        })
-                    })
-                })
-        })
-    }
-
+    /// Returns an iterator over all moves stored in this buffer, in ascending
+    /// `(rotation, spin, y, x)` order.
     #[inline]
     #[must_use]
-    /// Counts all occupied move cells across all rotations and spin buckets.
-    pub fn count(&self) -> u32 {
+    pub const fn iter(&self) -> MovesIter<'_, N> {
+        MovesIter {
+            moves: self,
+            rotation: 0,
+            spin: 0,
+            x: 0,
+            y: 0,
+        }
+    }
+
+    /// Returns the total number of moves in the buffer.
+    #[inline]
+    #[must_use]
+    pub fn popcount(&self) -> u64 {
         let mut total = 0;
-        for r in 0..4 {
+        for r in 0..Rotation::NB {
             total += self.none[r].popcount();
             total += self.mini[r].popcount();
             total += self.full[r].popcount();
         }
+
         total
+    }
+}
+
+/// An iterator over the moves in a [`Moves`] buffer.
+pub struct MovesIter<'a, const N: usize> {
+    moves: &'a Moves<N>,
+    rotation: usize,
+    spin: usize,
+    x: i32,
+    y: i32,
+}
+
+impl<const N: usize> Iterator for MovesIter<'_, N> {
+    type Item = Move;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.rotation < Rotation::NB {
+            let board = match self.spin {
+                0 => &self.moves.none[self.rotation],
+                1 => &self.moves.mini[self.rotation],
+                2 => &self.moves.full[self.rotation],
+                _ => unreachable!(),
+            };
+
+            while self.y < Board::<N>::total_height() {
+                while self.x < WIDTH {
+                    if board.get(self.x, self.y) {
+                        let mv = Move::new(
+                            self.moves.piece,
+                            self.x,
+                            self.y,
+                            Rotation::from_u8(self.rotation as u8),
+                            match self.spin {
+                                0 => Spin::None,
+                                1 => Spin::Mini,
+                                2 => Spin::Full,
+                                _ => unreachable!(),
+                            },
+                        );
+                        self.x += 1;
+                        return Some(mv);
+                    }
+                    self.x += 1;
+                }
+                self.x = 0;
+                self.y += 1;
+            }
+            self.y = 0;
+            self.spin += 1;
+            if self.spin > 2 {
+                self.spin = 0;
+                self.rotation += 1;
+            }
+        }
+        None
+    }
+}
+
+impl<'a, const N: usize> IntoIterator for &'a Moves<N> {
+    type Item = Move;
+    type IntoIter = MovesIter<'a, N>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
     }
 }

@@ -1,22 +1,25 @@
 //! Environment configuration for the TETR.IO client.
 use std::sync::OnceLock;
 
-/// Global environment configuration for the TETR.IO client, including the API token and weights path.
+/// Global environment configuration for the TETR.IO client.
+/// Contains the API token and the weights path.
 pub struct Env {
-    /// API token for the TETR.IO client, used for authentication with the TETR.IO API.
+    /// API token for authenticating with the TETR.IO API.
     pub token: String,
     /// Path to the weights file.
     pub weights: String,
     /// Current bot prefix.
     pub prefix: String,
-    /// List of bot hosts, who have elevated permissions for managing the bot.
+    /// Bot hosts. A host has elevated permissions for managing the bot.
     pub hosts: Vec<String>,
-    /// Development room ID, if any. Rue will instantly join this room upon startup.
+    /// Development room ID, if any.
+    /// Rue joins this room immediately at startup.
     pub dev_room: Option<String>,
 }
 
-/// Default weights path, resolved from the source tree at compile time so it
-/// doesn't depend on the working directory the binary happens to be launched from.
+/// Default weights path.
+/// Resolved from the source tree at compile time.
+/// It does not depend on the working directory of the binary.
 const DEFAULT_WEIGHTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../weights/simple.json");
 
 /// Global environment configuration.

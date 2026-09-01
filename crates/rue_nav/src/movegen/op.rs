@@ -179,17 +179,17 @@ pub fn classify<const N: usize, const P: Piece, const RULE: Rule>(
     r: usize,
     kick_idx: usize,
 ) -> Spin {
-    // everything isn't spin in None
+    // No placement is a spin in the `None` policy.
     if RULE.spins == Spins::None {
         return Spin::None;
     }
 
-    // all spins are spin in Stupid
+    // Every placement is a spin in the `Stupid` policy.
     if RULE.spins == Spins::Stupid {
         return Spin::Full;
     }
 
-    // bare minimum 3-corner T spin detection
+    // Run basic 3-corner T-spin detection.
     let is_t = P == Piece::T;
     let up_left = x == 0 || board.get(x - 1, y + 1);
     let up_right = x == WIDTH - 1 || board.get(x + 1, y + 1);
@@ -218,7 +218,7 @@ pub fn classify<const N: usize, const P: Piece, const RULE: Rule>(
                 return Spin::Full;
             }
 
-            // even in all-mini and all, t-minis are still mini
+            // In `AllMini` and `All`, T-minis are still mini.
             return Spin::Mini;
         }
 

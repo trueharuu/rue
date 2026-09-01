@@ -4,8 +4,6 @@ use rue_core::board::Board;
 use rue_core::piece::Piece;
 use rue_core::render;
 use rue_core::rule::DEFAULT;
-use rue_core::rule::Rule;
-use rue_core::spin::Spins;
 use rue_nav::movegen::fast;
 use rue_nav::movegen::oracle;
 
@@ -38,25 +36,25 @@ fn main() {
 
     // diff:
     // things in both
-    for mv in mvs_f.iter() {
+    for mv in &mvs_f {
         if mvs_o.contains(mv) {
-            println!("both: {:?}", mv);
+            println!("both: {mv:?}");
         }
     }
 
     // things in fast but not oracle
-    for mv in mvs_f.iter() {
+    for mv in &mvs_f {
         if !mvs_o.contains(mv) {
-            println!("fast only: {:?}", mv);
-            println!("{}", render::placement(&b, &mv))
+            println!("fast only: {mv:?}");
+            println!("{}", render::placement(&b, &mv));
         }
     }
 
     // things in oracle but not fast
-    for mv in mvs_o.iter() {
+    for mv in &mvs_o {
         if !mvs_f.contains(mv) {
-            println!("oracle only: {:?}", mv);
-            println!("{}", render::placement(&b, &mv))
+            println!("oracle only: {mv:?}");
+            println!("{}", render::placement(&b, &mv));
         }
     }
 }

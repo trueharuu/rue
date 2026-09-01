@@ -9,16 +9,16 @@ use crate::piece::Piece;
 use crate::rotation::Rotation;
 use crate::spin::Spin;
 
-/// A singular location and rotation of a piece.
-/// Moves have 5 fields:
-/// - `piece`: one of [`Piece`]. Spans 3 bits.
-/// - `x`: horizontal position bounded to `0..10`. Spans 4 bits.
-/// - `y`: vertical position bounded to `0..64`. Spans 6 bits.
-/// - `rotation`: one of [`Rotation`]. Spans 2 bits.
-/// - `spin`: one of [`Spin`]. Spans 2 bits.
+/// A single location and rotation of a piece.
+/// A move has 5 fields:
+/// - `piece`: one of [`Piece`]. Uses 3 bits.
+/// - `x`: horizontal position in `0..10`. Uses 4 bits.
+/// - `y`: vertical position in `0..64`. Uses 6 bits.
+/// - `rotation`: one of [`Rotation`]. Uses 2 bits.
+/// - `spin`: one of [`Spin`]. Uses 2 bits.
 ///
-/// In total, a single move can be packed into exactly 17 bits (with the most significant
-/// bits always 0).
+/// A single move packs into exactly 17 bits.
+/// The most significant bits are always 0.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Move(u32);
 
@@ -112,15 +112,13 @@ impl Move {
         match val {
             1 => Spin::Mini,
             2 => Spin::Full,
-            // this should be `0` with `_` handled separately with an
-            // `unreachable!()`, but the only remaining branch is `0 | 3`, it's safe to
-            // just discard the invalid value
+            // The value 3 is invalid. Discard it as a non-spin.
             _ => Spin::None,
         }
     }
 
-    /// The four absolute cells this placement would reside in.
-    /// It is not guaranteed that these cells are within `(0..4, 0..64)`.
+    /// Returns the four absolute cells this placement would occupy.
+    /// These cells are not guaranteed to be within `(0..4, 0..64)`.
     #[inline]
     #[must_use]
     pub const fn cells(self) -> [(i32, i32); 4] {

@@ -7,8 +7,8 @@ use rue_core::placement::Move;
 use rue_core::rotation::Rotation;
 use rue_core::spin::Spin;
 
-/// Result of move generation. Contains reachable landed positions per rotation, per
-/// spin-type.
+/// Result of move generation.
+/// Contains the reachable landed positions for each rotation and spin type.
 ///
 /// Layout:
 /// - `none[r]`: positions reachable with no spin
@@ -27,7 +27,7 @@ pub struct Moves<const N: usize> {
 }
 
 impl<const N: usize> Moves<N> {
-    /// Creates a new empty `Moves` result for the given piece.
+    /// Creates a new, empty `Moves` result for the given piece.
     #[inline]
     #[must_use]
     pub const fn empty(piece: Piece) -> Self {

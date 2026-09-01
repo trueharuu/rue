@@ -4,9 +4,8 @@ use rue_core::rng::Rng;
 use rue_nav::input::Input;
 use triangle::types::game::Key;
 
-/// A single raw controller action for the current piece: either a hold
-/// (decided by the bot before pathfinding runs) or a step in the path
-/// returned by [`rue_nav::pathfinder::get_input`].
+/// A single raw controller action for the current piece.
+/// It is either a hold, decided before pathfinding, or a step in the path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]
 pub enum BotMove {
@@ -14,9 +13,9 @@ pub enum BotMove {
     Path(Input),
 }
 
-/// Calculates the number of frames until the next piece spawns,
-/// given the number of pieces that have spawned, the current pieces per second (PPS),
-/// the time since the last piece spawned, and the minimum and maximum PPS values.
+/// Calculates the number of frames until the next piece spawns.
+/// It uses the number of pieces that have spawned, the pieces per second (PPS),
+/// the time since the last piece spawned, and the minimum and maximum PPS.
 pub fn frames_till_next_piece(pieces: u32, pps: f64, time: f64, min_pps: f64, max_pps: f64) -> f64 {
     let res = ((f64::from(pieces) + 1.0) / pps) * 60.0 - time;
     let lower = 60.0 / max_pps;

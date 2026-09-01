@@ -1,8 +1,10 @@
-//! Main bot logic, including the bot struct, configuration, state management, and event handling.
+//! Main bot logic.
+//! Contains the bot struct, configuration, state management, and event handling.
 //!
-//! The bot connects to a server via triangle, joins or creates a room,
-//! and listens for events such as chat messages and game updates.
-//! It processes commands from users and manages behavior based on game state and configuration.
+//! The bot connects to a server through triangle. It joins or creates a room.
+//! It listens for events such as chat messages and game updates.
+//! It processes user commands and manages behavior from game state and
+//! configuration.
 #![allow(clippy::missing_docs_in_private_items)]
 
 mod bind;
@@ -43,24 +45,29 @@ pub enum Target {
     Create,
 }
 
-/// The bot struct, containing the game state, configuration, client, and event handling.
+/// The bot struct.
+/// Contains the game state, configuration, client, and event handling.
 pub struct Bot {
     /// The triangle client used to connect to the server and handle events.
     pub client: Client,
-    /// The bot's configuration, including pieces per second (PPS), burst mode, and finesse style.
+    /// The bot configuration.
+    /// Includes pieces per second (PPS), burst mode, and finesse style.
     pub config: RwLock<Config>,
-    /// The bot's current state, including whether it is enabled, the current game state, and the current restriction level.
+    /// The current bot state.
+    /// Includes whether the bot is enabled, the game state, and the restriction level.
     pub state: RwLock<State>,
     /// The settings handler used to check room settings against constraints.
     pub settings: SettingsHandler,
     events: EventEmitter,
     /// The command registry used to handle chat commands.
     pub registry: Registry,
-    /// The global configuration across *all* nodes, including search beam width and queue buffer size.
+    /// The global configuration across all nodes.
+    /// Includes search beam width and queue buffer size.
     pub global_config: crate::settings::Config,
 }
 
-/// An error that can occur when creating or running the bot, including connection errors, room errors, and IO errors.
+/// An error that can occur when creating or running the bot.
+/// Includes connection, room, and IO errors.
 #[derive(Debug)]
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]
 pub enum BotError {

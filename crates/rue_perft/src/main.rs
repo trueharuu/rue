@@ -103,7 +103,7 @@ fn perft_rec<const N: usize, const RULE: Rule, const MODEL: Model>(
         Piece::Z => movegen::<N, { Piece::Z }, RULE, MODEL>(&b),
     };
 
-    // if we're at depth <= 3 don't parallelize, the overhead is too high
+    // Do not parallelize at depth 3 or less. The overhead is too high.
     if queue.len() <= 3 || !mt {
         return nx
             .into_iter()

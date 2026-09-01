@@ -9,7 +9,7 @@ pub struct Rng {
 }
 
 impl Rng {
-    /// Create a new instance of the given RNG with a seed based on the current time.
+    /// Creates a new RNG with a seed based on the current time.
     ///
     /// # Panics
     /// Panics if the [`SystemTime`] used is later than the current system time.
@@ -20,7 +20,7 @@ impl Rng {
         Self::new_seeded((now.as_nanos() % 2_147_483_647) as i32)
     }
 
-    /// Create a new instance of the given RNG with a set seed.
+    /// Creates a new RNG with a set seed.
     #[inline]
     #[must_use]
     pub const fn new_seeded(mut seed: i32) -> Self {

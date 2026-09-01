@@ -1,6 +1,6 @@
 //! Header constants for the entire project.
-//! These constants are used in multiple places, so they are defined in a single
-//! location to avoid duplication.
+//! These constants are used in multiple places.
+//! They are defined in one location to avoid duplication.
 
 use crate::data::CELLS;
 use crate::piece::Piece;

@@ -20,9 +20,9 @@ pub enum Input {
     /// Rotate 180 degrees.
     RotateFlip,
     /// Drops the piece downwards.
-    ///
-    /// When [`rue_core::rule::Rule::inf_sdf`] is false, lowers the piece by exactly 1
-    /// cell (if possible). Otherwise, lowers the piece as far as possible.
+    /// When [`rue_core::rule::Rule::inf_sdf`] is `false`, lowers the piece by
+    /// exactly 1 cell if possible.
+    /// Otherwise, lowers the piece as far as possible.
     SoftDrop,
     /// Instantly drop to lowest valid position.
     HardDrop,

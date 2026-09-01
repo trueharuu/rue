@@ -45,20 +45,20 @@ pub fn count_locks<const N: usize, const P: Piece, const RULE: Rule>(board: &Boa
     generate_inlined::<N, P, RULE, false>(board, y, force).1
 }
 
-// Generates reachable/landable placements for piece `P` on board `b`.
+/// Generates reachable and landable placements for piece `P` on board `b`.
 ///
-/// When `EMIT` is `true`, returns populated move buckets and a zero count. When
-/// `EMIT` is `false`, returns empty buckets and the number of reachable
+/// When `EMIT` is `true`, returns populated move buckets and a zero count.
+/// When `EMIT` is `false`, returns empty buckets and the number of reachable
 /// landable placements.
 #[inline]
 #[must_use]
 pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const EMIT: bool>(
-    b: &Board<N>,
+    board: &Board<N>,
     y: i32,
     force: i32,
 ) -> (Moves<N>, u64, [Board<N>; 4], [Board<N>; 4], [Board<N>; 4]) {
     let h = Board::<N>::total_height();
-    let usable = usable_map::<N, P>(b);
+    let usable = usable_map::<N, P>(board);
     let cs = P.groups();
     let ss = P.search_size();
     let all_done = (1u64 << P.search_size()) - 1;
@@ -120,7 +120,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
             });
 
             if remaining == 0 && !track {
-                let (m, c) = finish::<N, P, RULE, EMIT>(cs, b, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+                let (m, c) = finish::<N, P, RULE, EMIT>(cs, board, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
                 return (m, c, search, kicked, kicked_hi);
             }
 
@@ -149,7 +149,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
             });
 
             if remaining == 0 && !track {
-                let (m, c) = finish::<N, P, RULE, EMIT>(cs, b, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+                let (m, c) = finish::<N, P, RULE, EMIT>(cs, board, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
                 return (m, c, search, kicked, kicked_hi);
             }
 
@@ -184,7 +184,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
         });
     }
 
-    let (m, c) = finish::<N, P, RULE, EMIT>(cs, b, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+    let (m, c) = finish::<N, P, RULE, EMIT>(cs, board, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
     (m, c, search, kicked, kicked_hi)
 }
 
@@ -323,7 +323,7 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
             if !matches!(P, Piece::O) {
                 let probe = env_probe(&search[R], EnvelopeTable::<P, R>::E);
 
-                // rotation direction 0/1 (cw/ccw), 6 kicks (indicies 0-5)
+                // rotation directions 0 and 1 (cw and ccw); 6 kicks (index 0-5)
                 rot_kick_seq::<N, P, RULE, R, 0>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
                 rot_kick_seq::<N, P, RULE, R, 1>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
 

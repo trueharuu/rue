@@ -62,16 +62,16 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule>(
 
     // `y` is the drop height (top of the stack).
     // When it rises within `h_spawn` rows of the spawn row, a piece at the
-    // nominal spawn would overlap the stack, so the spawn is raised to the
-    // first free cell in the spawn column. The scan is bounded by `force` rows
-    // of allowed rise (plus the field top); reaching the bound with no free
-    // cell means the piece is locked out and no placement is reachable.
+    // nominal spawn overlaps the stack. The spawn then rises to the first free
+    // cell in the spawn column. The scan is bounded by `force` rows of allowed
+    // rise plus the field top. If the bound has no free cell, the piece is
+    // locked out and no placement is reachable.
     let sx = RULE.spawn_x;
     // The nominal spawn row is defined for a full-height field. Banded boards
-    // (e.g. the band-cast perft driver) can be shorter than the spawn row, so
-    // clamp the spawn to the highest row where the piece fits in its spawn
-    // orientation; the BFS then explores the same landed set a top-edge spawn
-    // produces.
+    // (for example, the band-cast perft driver) can be shorter than the spawn
+    // row. Clamp the spawn to the highest row where the piece fits in its spawn
+    // orientation. The BFS then explores the same landed set that a top-edge
+    // spawn produces.
     let top = Board::<N>::total_height();
     let sy = RULE.spawn_y;
 

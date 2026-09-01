@@ -1,13 +1,12 @@
-//! A row-major banded bitboard representation for a 10-column board, where each
-//! 10x6 band is represented by a [`u64`] value.
+//! A row-major banded bitboard representation for a 10-column board.
+//! Each 10x6 band is represented by a [`u64`] value.
 //!
-//! The `Board` struct provides methods to create an empty board, get and set
-//! bits at specific coordinates, and access the underlying SIMD vector
-//! representation of the board.
+//! The `Board` struct creates an empty board, gets and sets bits at specific
+//! coordinates, and accesses the board as a SIMD vector.
 //!
-//! The board is designed to be efficient for operations that can be vectorized
-//! using SIMD, allowing for fast manipulation of the board state, and is used
-//! for the variety of features in [`crate`].
+//! The board is efficient for operations that SIMD can vectorize.
+//! It provides fast manipulation of the board state.
+//! It supports the features in [`crate`].
 
 use std::cmp::Ordering;
 use std::ops::BitAnd;
@@ -119,7 +118,7 @@ impl<const N: usize> Board<N> {
             Ordering::Equal => (self.0, Simd::splat(0), 0),
             Ordering::Greater => {
                 let q = ((dy - 1) / TLINES) as usize;
-                let s = ((((dy - 1) % TLINES) + 1) * WIDTH) as u32; // == old `hi`
+                let s = ((((dy - 1) % TLINES) + 1) * WIDTH) as u32;
                 let src = self.0.to_array();
                 let mut lo_w = [0u64; N];
                 let mut hi_w = [0u64; N];
@@ -144,14 +143,16 @@ impl<const N: usize> Board<N> {
                 if q + 1 < N {
                     hi_w[..N - q - 1].copy_from_slice(&src[q + 1..]);
                 }
-                (Simd::from_array(hi_w), Simd::from_array(lo_w), s) // note: swapped vs Greater case
+                // The high word is returned first for a downward shift.
+                // This is the reverse of the upward case above.
+                (Simd::from_array(hi_w), Simd::from_array(lo_w), s)
             }
         };
 
         let mut result = if s == 0 {
             lo
         } else {
-            // keep your (x << (s-1)) << 1 trick to dodge shift-by-64 UB
+            // Shift in two steps to avoid a shift-by-64 overflow.
             (lo << Simd::splat(u64::from(s - 1)) << Simd::splat(1u64))
                 | (hi >> Simd::splat(u64::from(TLINES as u32 * WIDTH as u32 - s)))
         };
@@ -167,22 +168,22 @@ impl<const N: usize> Board<N> {
         Self(result)
     }
 
-    /// Shifts the entire board leftwards by 1 column.
+    /// Shifts the entire board left by 1 column.
     #[inline]
     #[must_use]
     pub fn shl(&self) -> Self {
         Self((self.0 >> Simd::splat(1)) & Simd::splat(dx_mask(-1)))
     }
 
-    /// Shifts the entire board rightwards by 1 column.
+    /// Shifts the entire board right by 1 column.
     #[inline]
     #[must_use]
     pub fn shr(&self) -> Self {
         Self((self.0 << Simd::splat(1)) & Simd::splat(dx_mask(1)))
     }
 
-    /// Casts this board into a different band count, truncating or
-    /// zero-extending as needed.
+    /// Casts this board into a different band count.
+    /// Truncates or zero-extends as needed.
     #[inline]
     #[must_use]
     pub fn cast<const M: usize>(&self) -> Board<M> {
@@ -273,8 +274,8 @@ impl<const N: usize> Board<N> {
         0
     }
 
-    /// Places a piece by explicit cell writes, applies line clear, and returns
-    /// cleared line count.
+    /// Places a piece by explicit cell writes.
+    /// Applies the line clear and returns the number of cleared lines.
     #[inline]
     pub fn do_move(&mut self, placement: Move) -> u64 {
         if placement.y() + 2 >= Self::total_height() {
@@ -306,8 +307,8 @@ impl<const N: usize> Board<N> {
     }
 
     #[inline]
-    /// Places a piece via precomputed masks, applies line clear, and returns
-    /// cleared line count.
+    /// Places a piece via precomputed masks.
+    /// Applies the line clear and returns the number of cleared lines.
     pub fn do_move_masked(&mut self, piece: Piece, rc: usize, x: i32, y: i32) -> u64 {
         let (lo, hi, boff, xb) = PMASK[piece as usize][rc][(y % TLINES) as usize];
 

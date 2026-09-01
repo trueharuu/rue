@@ -95,12 +95,12 @@ fn doc_comment_description(func: &ItemFn) -> String {
 /// Attribute macro for defining a command.
 ///
 /// The `///` doc comment on the function becomes the command description.
-/// Command usage is auto-generated from each parameter type's
+/// Command usage is generated from each parameter type's
 /// [`ParseArgument::label()`].
 ///
 /// # Supported attributes
 ///
-/// - `aliases = ["a", "b"]` — alternative invocation names.
+/// - `aliases = ["a", "b"]`: alternative names for the command.
 ///
 /// # Example
 ///
@@ -113,8 +113,8 @@ fn doc_comment_description(func: &ItemFn) -> String {
 /// }
 /// ```
 ///
-/// The macro generates a zero-sized struct `ping_command` that implements
-/// [`Command`](rue_client::command::Command).
+/// The macro generates a zero-sized struct `ping_command`.
+/// It implements [`Command`](rue_client::command::Command).
 #[proc_macro_attribute]
 pub fn command(attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = parse_macro_input!(item as ItemFn);

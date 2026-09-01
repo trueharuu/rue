@@ -1,9 +1,11 @@
 //! Argument parsing for commands.
 //!
-//! Houses a [`ParseArgument`] trait which can be implemented for any parseable type,
-//! allowing commands to automatically parse their arguments into typed values given they implement it.
+//! The [`ParseArgument`] trait converts a parsed type from a command's argument
+//! stream. A command with a type that implements this trait parses its
+//! arguments automatically.
 //!
-//! Additionally supplies implementations of [`ParseArgument`] for common types like [`String`], [`i64`], [`u64`], [`f64`], and [`bool`].
+//! This module supplies [`ParseArgument`] implementations for common types:
+//! [`String`], [`i64`], [`u64`], [`f64`], and [`bool`].
 use super::context::Context;
 
 /// Trait for types that can be extracted from a command's argument stream.

@@ -8,7 +8,8 @@ pub enum Finesse {
     Smooth,
 }
 
-/// The bot's configuration, including pieces per second (PPS), burst mode, and finesse style.
+/// The bot configuration.
+/// Contains pieces per second (PPS), burst mode, and finesse style.
 #[derive(Debug, Clone)]
 #[allow(missing_docs, clippy::missing_docs_in_private_items)]
 pub struct Config {
@@ -18,7 +19,8 @@ pub struct Config {
     pub vision: usize,
 }
 
-/// Whether the bot is enabled, and whether it should attempt to enable itself if disabled.
+/// Whether the bot is enabled.
+/// Also records whether the bot should attempt to enable itself when disabled.
 #[derive(Debug, Clone)]
 pub struct EnabledState {
     /// Whether the bot is currently enabled.
@@ -29,20 +31,24 @@ pub struct EnabledState {
     pub force: bool,
 }
 
-/// Current game state, including the last piece frame and the target frame for the next piece.
+/// Current game state.
+/// Contains the last piece frame and the target frame for the next piece.
 #[derive(Debug, Clone)]
 pub struct GameState {
     pub last_piece_frame: u64,
     pub target_frame: u64,
 }
 
-/// Current room state, including whether the bot is enabled, the current game state, and the current restriction level.
+/// Current room state.
+/// Contains whether the bot is enabled, the game state, and the restriction level.
 #[derive(Debug, Clone)]
 pub struct State {
-    /// Whether the bot is enabled, and whether it should attempt to enable itself if disabled.
+    /// Whether the bot is enabled.
+    /// Also records whether the bot should attempt to enable itself when disabled.
     pub enabled: EnabledState,
     /// The current game state.
     pub game: Option<GameState>,
-    /// The current restriction level for commands in the room. Commands below this level will be ignored.
+    /// The command restriction level for the room.
+    /// Commands below this level are ignored.
     pub restriction: Restriction,
 }

@@ -59,6 +59,20 @@ impl<const N: usize> Moves<N> {
         true
     }
 
+    /// Returns `true` if the buffer contains the given [`Move`], `false` otherwise.
+    #[inline]
+    #[must_use]
+    pub fn contains(&self, mv: Move) -> bool {
+        let r = mv.rotation() as usize;
+        let board = match mv.spin() {
+            Spin::None => &self.none[r],
+            Spin::Mini => &self.mini[r],
+            Spin::Full => &self.full[r],
+        };
+
+        board.get(mv.x(), mv.y())
+    }
+
     /// Returns an iterator over all moves stored in this buffer, in ascending
     /// `(rotation, spin, y, x)` order.
     #[inline]

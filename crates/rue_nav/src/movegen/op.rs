@@ -205,6 +205,13 @@ pub fn classify<const N: usize, const P: Piece, const RULE: Rule>(
         _ => unreachable!(),
     };
 
+    let up = check_fast::<N, P>(usable, x, y + 1, r);
+    let down = check_fast::<N, P>(usable, x, y - 1, r);
+    let left = check_fast::<N, P>(usable, x - 1, y, r);
+    let right = check_fast::<N, P>(usable, x + 1, y, r);
+
+    let is_immobile = !up && !down && !left && !right;
+
     if is_t && RULE.has_t_corner_spins() {
         if has_3 {
             if front_corners || kick_idx >= 4 {
@@ -215,18 +222,11 @@ pub fn classify<const N: usize, const P: Piece, const RULE: Rule>(
             return Spin::Mini;
         }
 
+        if is_immobile && RULE.has_immobile_t_spins() {
+            return Spin::Mini;
+        }
+
         return Spin::None;
-    }
-
-    let up = check_fast::<N, P>(usable, x, y + 1, r);
-    let down = check_fast::<N, P>(usable, x, y - 1, r);
-    let left = check_fast::<N, P>(usable, x - 1, y, r);
-    let right = check_fast::<N, P>(usable, x + 1, y, r);
-
-    let is_immobile = !up && !down && !left && !right;
-
-    if is_immobile && RULE.has_immobile_t_spins() && is_t {
-        return Spin::Mini;
     }
 
     if is_immobile && RULE.has_immobile_non_t_spins() && !is_t {

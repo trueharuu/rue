@@ -1,10 +1,13 @@
+use std::simd::Simd;
+
 use rue_core::board::Board;
 use rue_core::data::KICKS_I;
 use rue_core::data::KICKS_O;
 use rue_core::data::KICKS_TJLSZ;
 use rue_core::envelope::EnvelopeTable;
 use rue_core::envelope::env_probe;
-use rue_core::header::WIDTH;
+use rue_core::header::COL0;
+use rue_core::header::COL9;
 use rue_core::piece::Piece;
 use rue_core::rot_idx;
 use rue_core::rule::Rule;
@@ -24,15 +27,14 @@ use crate::unroll;
 #[must_use]
 pub fn movegen<const N: usize, const RULE: Rule>(board: &Board<N>, piece: Piece, y: i32, force: i32) -> Moves<N> {
     match piece {
-        Piece::T => generate_inlined::<N, { Piece::T }, RULE, true>(board, y, force),
-        Piece::I => generate_inlined::<N, { Piece::I }, RULE, true>(board, y, force),
-        Piece::J => generate_inlined::<N, { Piece::J }, RULE, true>(board, y, force),
-        Piece::L => generate_inlined::<N, { Piece::L }, RULE, true>(board, y, force),
-        Piece::O => generate_inlined::<N, { Piece::O }, RULE, true>(board, y, force),
-        Piece::S => generate_inlined::<N, { Piece::S }, RULE, true>(board, y, force),
-        Piece::Z => generate_inlined::<N, { Piece::Z }, RULE, true>(board, y, force),
+        Piece::T => generate_inlined::<N, { Piece::T }, RULE, true>(board, y, force).0,
+        Piece::I => generate_inlined::<N, { Piece::I }, RULE, true>(board, y, force).0,
+        Piece::J => generate_inlined::<N, { Piece::J }, RULE, true>(board, y, force).0,
+        Piece::L => generate_inlined::<N, { Piece::L }, RULE, true>(board, y, force).0,
+        Piece::O => generate_inlined::<N, { Piece::O }, RULE, true>(board, y, force).0,
+        Piece::S => generate_inlined::<N, { Piece::S }, RULE, true>(board, y, force).0,
+        Piece::Z => generate_inlined::<N, { Piece::Z }, RULE, true>(board, y, force).0,
     }
-    .0
 }
 
 /// Counts the number of reachable landed positions for a single piece and rule
@@ -54,16 +56,19 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
     b: &Board<N>,
     y: i32,
     force: i32,
-) -> (Moves<N>, u64) {
+) -> (Moves<N>, u64, [Board<N>; 4], [Board<N>; 4], [Board<N>; 4]) {
     let h = Board::<N>::total_height();
     let usable = usable_map::<N, P>(b);
     let cs = P.groups();
     let ss = P.search_size();
     let all_done = (1u64 << P.search_size()) - 1;
     let cands = landable_map(&usable, P.groups());
+    let track = EMIT && !matches!(RULE.spins, Spins::None);
     let mut missing = [Board::empty(); 4];
     let mut search = [Board::empty(); 4];
     let mut unsearched = [Board::empty(); 4];
+    let mut kicked = [Board::empty(); 4];
+    let mut kicked_hi = [Board::empty(); 4];
     let mut remaining = 0;
     let mut done;
     let mut total = 0;
@@ -84,7 +89,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
             }
 
             if spawn_y == threshold {
-                return (Moves::empty(P), 0);
+                return (Moves::empty(P), 0, search, kicked, kicked_hi);
             }
 
             search[0].set(RULE.spawn_x, spawn_y);
@@ -114,8 +119,9 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
                 }
             });
 
-            if remaining == 0 {
-                return finish::<N, P, RULE, EMIT>(cs, &cands, &missing, remaining, total);
+            if remaining == 0 && !track {
+                let (m, c) = finish::<N, P, RULE, EMIT>(cs, b, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+                return (m, c, search, kicked, kicked_hi);
             }
 
             // two rounds of horizontal tucks
@@ -142,8 +148,9 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
                 }
             });
 
-            if remaining == 0 {
-                return finish::<N, P, RULE, EMIT>(cs, &cands, &missing, remaining, total);
+            if remaining == 0 && !track {
+                let (m, c) = finish::<N, P, RULE, EMIT>(cs, b, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+                return (m, c, search, kicked, kicked_hi);
             }
 
             if P.group2() {
@@ -169,19 +176,27 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
                 &mut missing,
                 &mut remaining,
                 &usable,
+                &mut kicked,
+                &mut kicked_hi,
+                track,
                 all_done,
             );
         });
     }
 
-    finish::<N, P, RULE, EMIT>(cs, &cands, &missing, remaining, total)
+    let (m, c) = finish::<N, P, RULE, EMIT>(cs, b, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+    (m, c, search, kicked, kicked_hi)
 }
 
 #[inline]
 fn finish<const N: usize, const P: Piece, const RULE: Rule, const EMIT: bool>(
     cs: usize,
+    board: &Board<N>,
+    usable: &[Board<N>; 4],
     cands: &[Board<N>; 4],
     missing: &[Board<N>; 4],
+    kicked: &[Board<N>; 4],
+    kicked_hi: &[Board<N>; 4],
     remaining: u64,
     total: u64,
 ) -> (Moves<N>, u64) {
@@ -189,10 +204,64 @@ fn finish<const N: usize, const P: Piece, const RULE: Rule, const EMIT: bool>(
         let mut moves = Moves::empty(P);
 
         unroll!(r, cs, {
-            let landable = cands[r] ^ missing[r];
-
-            moves.none[r] = landable;
+            moves.none[r] = cands[r] ^ missing[r];
         });
+
+        if matches!(P, Piece::T) && !matches!(RULE.spins, Spins::None) && RULE.has_t_corner_spins() {
+            let c0 = Board::<N>(Simd::splat(COL0));
+            let c9 = Board::<N>(Simd::splat(COL9));
+            let mut floor = [0u64; N];
+            floor[0] = 0x3FF;
+            let r0 = Board::<N>(Simd::from_array(floor));
+
+            let ul = c0 | board.shifted(1, -1);
+            let ur = c9 | board.shifted(-1, -1);
+            let dl = c0 | r0 | board.shifted(1, 1);
+            let dr = c9 | r0 | board.shifted(-1, 1);
+            let has_3 = (ul & ur & (dl | dr)) | (dl & dr & (ul | ur));
+
+            unroll!(r, cs, {
+                let front = match r {
+                    0 => ul & ur,
+                    1 => ur & dr,
+                    2 => dl & dr,
+                    3 => ul & dl,
+                    _ => unreachable!(),
+                };
+                let spin = (cands[r] ^ missing[r]) & kicked[r];
+                moves.full[r] |= spin & has_3 & (front | kicked_hi[r]);
+                moves.mini[r] |= spin & has_3 & !front & !kicked_hi[r];
+
+                if RULE.has_immobile_t_spins() {
+                    let immobile = !(usable[r].shifted(0, -1)
+                        | usable[r].shifted(0, 1)
+                        | usable[r].shifted(1, 0)
+                        | usable[r].shifted(-1, 0));
+                    moves.mini[r] |= spin & !has_3 & immobile;
+                }
+            });
+        }
+
+        if !matches!(P, Piece::T) && !matches!(P, Piece::O) && RULE.has_immobile_non_t_spins() {
+            unroll!(r, cs, {
+                let immobile = !(usable[r].shifted(0, -1)
+                    | usable[r].shifted(0, 1)
+                    | usable[r].shifted(1, 0)
+                    | usable[r].shifted(-1, 0));
+                let spin = (cands[r] ^ missing[r]) & kicked[r] & immobile;
+                if RULE.is_full() {
+                    moves.full[r] |= spin;
+                } else {
+                    moves.mini[r] |= spin;
+                }
+            });
+        }
+
+        if matches!(RULE.spins, Spins::Stupid) {
+            unroll!(r, cs, {
+                moves.full[r] |= (cands[r] ^ missing[r]) & kicked[r];
+            });
+        }
 
         return (moves, 0);
     }
@@ -216,6 +285,9 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
     missing: &mut [Board<N>; 4],
     remaining: &mut u64,
     usable: &[Board<N>; 4],
+    kicked: &mut [Board<N>; 4],
+    kicked_hi: &mut [Board<N>; 4],
+    track: bool,
     all_done: u64,
 ) {
     if R < ss && *done & (1 << R) == 0 {
@@ -245,24 +317,26 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
             *remaining &= !(1 << rc);
         }
 
-        if *remaining == 0 {
+        if *remaining == 0 && !track {
             *done = all_done;
         } else {
             if !matches!(P, Piece::O) {
                 let probe = env_probe(&search[R], EnvelopeTable::<P, R>::E);
 
                 // rotation direction 0/1 (cw/ccw), 6 kicks (indicies 0-5)
-                rot_kick_seq::<N, P, RULE, R, 0>(probe, search, unsearched, missing, done, remaining, usable);
-                rot_kick_seq::<N, P, RULE, R, 1>(probe, search, unsearched, missing, done, remaining, usable);
+                rot_kick_seq::<N, P, RULE, R, 0>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
+                rot_kick_seq::<N, P, RULE, R, 1>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
 
                 // rotation direction 2 (180)
                 if const { RULE.allow_180 } {
-                    rot_kick_seq::<N, P, RULE, R, 2>(probe, search, unsearched, missing, done, remaining, usable);
+                    rot_kick_seq::<N, P, RULE, R, 2>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
                 }
 
                 if *remaining == 0 {
                     *done = all_done;
                 }
+            } else if *remaining == 0 {
+                *done = all_done;
             }
 
             if *done != all_done {
@@ -273,6 +347,7 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
 }
 
 #[inline]
+#[allow(unused_assignments)]
 fn rot_kick_seq<const N: usize, const P: Piece, const RULE: Rule, const R: usize, const D: usize>(
     probe: Board<N>,
     search: &mut [Board<N>; 4],
@@ -281,6 +356,9 @@ fn rot_kick_seq<const N: usize, const P: Piece, const RULE: Rule, const R: usize
     done: &mut u64,
     remaining: &mut u64,
     usable: &[Board<N>; 4],
+    kicked: &mut [Board<N>; 4],
+    kicked_hi: &mut [Board<N>; 4],
+    track: bool,
 ) {
     if !probe.any() {
         return;
@@ -305,6 +383,7 @@ fn rot_kick_seq<const N: usize, const P: Piece, const RULE: Rule, const R: usize
     let off_y = P.canonical_offset(rot_idx!(R)).1 - P.canonical_offset(rot_idx!(r1)).1;
 
     let mut temp = search[R];
+    let mut tkick = track.then_some(search[R]);
 
     macro_rules! step {
         ($n:literal) => {{
@@ -316,7 +395,21 @@ fn rot_kick_seq<const N: usize, const P: Piece, const RULE: Rule, const R: usize
             let kx = i32::from(lane.0[$n].0) + off_x;
             let ky = i32::from(lane.0[$n].1) + off_y;
 
-            let res = temp.shifted(kx, ky) & unsearched[r1];
+            let cand = temp.shifted(kx, ky);
+
+            if track {
+                let t = tkick.unwrap();
+                let kres = t.shifted(kx, ky) & usable[r1c];
+                kicked[r1c] |= kres;
+                if $n >= 4 {
+                    kicked_hi[r1c] |= kres;
+                }
+                if $n < 5 {
+                    tkick = Some(t & !usable[r1c].shifted(-kx, -ky));
+                }
+            }
+
+            let res = cand & unsearched[r1];
 
             if res.any() {
                 search[r1] |= res;

@@ -32,13 +32,31 @@ fn main() {
     b.set(9, 0);
     b.set(9, 1);
 
-    let mvs = fast::movegen::<8, DEFAULT>(&b, Piece::J, 20, 0);
-    for mv in mvs
-        .iter()
-        // .filter(|x| x.spin() != rue_core::spin::Spin::None)
-    {
-        println!("{}{mv:?}", render::placement(&b, &mv));
+    let p = Piece::J;
+    let mvs_f = fast::movegen::<8, DEFAULT>(&b, p, 20, 0);
+    let mvs_o = oracle::movegen::<8, DEFAULT>(&b, p, 20, 0);
+
+    // diff:
+    // things in both
+    for mv in mvs_f.iter() {
+        if mvs_o.contains(mv) {
+            println!("both: {:?}", mv);
+        }
     }
 
-    println!("{}", mvs.popcount());
+    // things in fast but not oracle
+    for mv in mvs_f.iter() {
+        if !mvs_o.contains(mv) {
+            println!("fast only: {:?}", mv);
+            println!("{}", render::placement(&b, &mv))
+        }
+    }
+
+    // things in oracle but not fast
+    for mv in mvs_o.iter() {
+        if !mvs_f.contains(mv) {
+            println!("oracle only: {:?}", mv);
+            println!("{}", render::placement(&b, &mv))
+        }
+    }
 }

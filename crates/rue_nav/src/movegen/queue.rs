@@ -13,6 +13,7 @@ pub struct Queue {
 
 impl Queue {
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             // SAFETY: An uninitialized `[MaybeUninit<_>; CAP]` is valid.
@@ -40,7 +41,14 @@ impl Queue {
     }
 
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.front == self.back
+    }
+}
+
+impl Default for Queue {
+    fn default() -> Self {
+        Self::new()
     }
 }

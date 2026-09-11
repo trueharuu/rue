@@ -16,12 +16,14 @@ use crate::game::attack::Attack;
 
 pub use search::SearchGame;
 
+pub const QUEUE_SIZE: usize = 35;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Game<const N: usize, const RULE: Rule> {
     pub rng: Rng,
     pub grng: Rng,
     pub board: Board<N>,
-    pub queue: Buffer<Piece, 28>,
+    pub queue: Buffer<Piece, QUEUE_SIZE>,
     pub hold: Option<Piece>,
     pub combo: Option<u32>,
     pub b2b: Option<u32>,

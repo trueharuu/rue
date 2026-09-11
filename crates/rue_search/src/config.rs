@@ -15,6 +15,8 @@ pub struct SearchConfig {
     pub time_budget: Option<Duration>,
     /// Drop children below `level_max - futility_delta`. `0` disables it.
     pub futility_delta: f32,
+    /// Fraction of the remaining budget a scheduled widening pass may target.
+    pub budget_safety: f64,
 }
 
 impl Default for SearchConfig {
@@ -24,6 +26,7 @@ impl Default for SearchConfig {
             depth: 7,
             time_budget: None,
             futility_delta: 15.0,
+            budget_safety: 0.85,
         }
     }
 }

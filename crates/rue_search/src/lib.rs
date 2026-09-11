@@ -52,10 +52,12 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
 
     /// Returns the best root placement for `game`.
     ///
-    /// With a time budget the search widens from 200 in doubling steps up to
-    /// `beam_width`, stopping when the budget elapses. Results are
-    /// deterministic for a fixed input. The result carries the accepted beam
-    /// width, the wall time spent, and the configured budget.
+    /// With a time budget the search widens from 200 toward `beam_width`,
+    /// scheduling each pass width from the measured throughput so the pass
+    /// fits in the remaining budget. Without a budget the search runs once at
+    /// `beam_width` and is deterministic. With a budget the result is
+    /// load-dependent. The result carries the accepted beam width, the wall
+    /// time spent, and the configured budget.
     pub fn find_best_move(&mut self, game: &Game<N, RULE>) -> Option<SearchResult> {
         let started = Instant::now();
         let budget = self.config.time_budget;
@@ -63,27 +65,63 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
         let (result, width) = match budget {
             None => {
                 let width = self.config.beam_width.max(1);
-                (self.search_once(game, width), width)
+                let (res, _) = self.search_once(game, width, None);
+                (res, width)
             }
             Some(budget) => {
                 let mut best: Option<(Move, f32)> = None;
                 let mut best_width = 0;
-                let mut width = self.config.beam_width.clamp(1, 200);
+                let start_width = self.config.beam_width.clamp(1, 200);
+                let mut width = start_width;
+                let mut throughput: Option<f64> = None;
+
                 loop {
-                    if best.is_some() && started.elapsed() >= budget {
-                        break;
+                    let pass_start = Instant::now();
+                    let (result, finished) =
+                        self.search_once(game, width, Some(started + budget));
+
+                    if finished || best.is_none() {
+                        if let Some(result) = result
+                            && best.is_none_or(|b| result.1 > b.1)
+                        {
+                            best = Some(result);
+                            best_width = width;
+                        }
+                        if finished {
+                            let rate = pass_start.elapsed().as_secs_f64() / width as f64;
+                            throughput = Some(match throughput {
+                                None => rate,
+                                Some(prev) => prev * 0.5 + rate * 0.5,
+                            });
+                        }
                     }
-                    if let Some(result) = self.search_once(game, width)
-                        && best.is_none_or(|b| result.1 > b.1)
-                    {
-                        best = Some(result);
-                        best_width = width;
-                    }
+
                     if width >= self.config.beam_width {
                         break;
                     }
-                    width = width.saturating_mul(2).min(self.config.beam_width);
+
+                    let remaining = budget.saturating_sub(started.elapsed());
+                    if remaining.is_zero() {
+                        break;
+                    }
+
+                    let Some(rate) = throughput else {
+                        break;
+                    };
+
+                    let target = (remaining.as_secs_f64() * self.config.budget_safety / rate)
+                        as usize;
+                    let target = target
+                        .max(start_width)
+                        .min(width.saturating_mul(2))
+                        .min(self.config.beam_width);
+                    if target <= width {
+                        break;
+                    }
+
+                    width = target;
                 }
+
                 (best, best_width)
             }
         };
@@ -98,7 +136,16 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
     }
 
     /// Runs one full-width, depth-limited search.
-    fn search_once(&mut self, game: &Game<N, RULE>, width: usize) -> Option<(Move, f32)> {
+    ///
+    /// Returns the best root placement and whether the full depth was
+    /// reached. When `deadline` passes between levels the search stops early
+    /// and reports `finished == false`, still returning the best found move.
+    fn search_once(
+        &mut self,
+        game: &Game<N, RULE>,
+        width: usize,
+        deadline: Option<Instant>,
+    ) -> (Option<(Move, f32)>, bool) {
         let ruleset = &game.ruleset;
 
         self.out.clear();
@@ -111,7 +158,7 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
             expand_root(&mut ctx, game);
         }
         if self.out.is_empty() {
-            return None;
+            return (None, true);
         }
         self.prune_select(0, width);
         self.out.reserve(width.saturating_mul(24));
@@ -119,6 +166,13 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
         let mut start = 0usize;
         let mut levels = 1usize;
         while levels < self.config.depth {
+            if let Some(deadline) = deadline
+                && Instant::now() >= deadline
+            {
+                let winner = self.out[start];
+                return (Some((winner.root_move, winner.score)), false);
+            }
+
             let before = self.out.len();
             let parents = self.out[start..before].to_vec();
             if parents.is_empty() {
@@ -135,7 +189,7 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
         }
 
         let winner = self.out[start];
-        Some((winner.root_move, winner.score))
+        (Some((winner.root_move, winner.score)), true)
     }
 
     /// Expands `parents` on the rayon pool and appends the children to `out`
@@ -214,7 +268,8 @@ fn cmp<const N: usize>(a: &Node<N>, b: &Node<N>) -> Ordering {
 mod tests {
     use rue_core::board::Board;
     use rue_core::buffer::Buffer;
-    use rue_core::game::garbage::GarbageQueue;
+    use rue_core::game::QUEUE_SIZE;
+use rue_core::game::garbage::GarbageQueue;
     use rue_core::game::ruleset::SEASON_2;
     use rue_core::game::search::SearchGame;
     use rue_core::game::Game;
@@ -228,7 +283,7 @@ mod tests {
     use crate::SearchConfig;
 
     /// Appends one full 7-bag to the queue.
-    fn fill(queue: &mut Buffer<Piece, 28>, rng: &mut Rng) {
+    fn fill(queue: &mut Buffer<Piece, { QUEUE_SIZE }>, rng: &mut Rng) {
         let mut bag = Piece::ALL;
         rng.shuffle_array(&mut bag);
         for piece in bag {
@@ -319,6 +374,7 @@ mod tests {
                 depth: 7,
                 time_budget: None,
                 futility_delta: 0.0,
+                budget_safety: 0.85,
             },
         );
 
@@ -352,6 +408,7 @@ mod tests {
             depth: 7,
             time_budget: None,
             futility_delta: 0.0,
+            budget_safety: 0.85,
         };
 
         let mut s1 = BeamSearch::new(&model, config);

@@ -15,28 +15,36 @@ pub struct Simple {
     pub bumpiness_sq: f32,
     pub row_transitions: f32,
     pub well_depth: f32,
+    pub well_col: [f32; 10],
+    pub col_height: [f32; 10],
 
     // extrinsic features
     pub combo: f32,
     pub b2b: f32,
+    pub b2b_break: f32,
     pub incoming: f32,
-    
+
     // attack
     pub clear: [[f32; 5]; 3],
     pub base_attack: f32,
     pub attack: f32,
     pub pc: f32,
 
+    // spin-chain readiness, modeled on coldclear freestyle
+    pub tslot: [f32; 4],
+    pub combo_attack: f32,
+
     // playstyle
     pub well_distance: f32,
+    pub in_multiplier: f32,
 }
 
 impl Default for Simple {
     fn default() -> Self {
         Self {
             holes: -4.0,
-            cell_coveredness: -0.5,
-            height: -0.2,
+            cell_coveredness: -3.5,
+            height: -0.5,
             height_upper_half: -1.0,
             height_upper_quarter: -5.0,
             bumpiness: -0.3,
@@ -47,15 +55,21 @@ impl Default for Simple {
             base_attack: 2.5,
             combo: 0.3,
             b2b: 2.0,
+            b2b_break: -6.0,
             pc: 6.0,
             incoming: -0.5,
+            tslot: [0.0, 3.0, 8.0, 14.0],
+            combo_attack: 6.0,
             clear: [
-                [0.0, -10.0, -10.0, -10.0, 1.0],
-                [0.0, 0.5, 0.25, 0.25, 0.0],
-                [0.0, 0.75, 10.0, 1.0, 0.0],
+                [0.0, -10.0, -10.0, -10.0, -1.0],
+                [0.0, -1.0, -1.25, -1.25, 0.0],
+                [0.0, -0.75, 5.0, -1.0, 0.0],
             ],
-            // reward spins that are far from the well
-            well_distance: 1.0,
+
+            well_distance: -1.0,
+            well_col: [-5.0, -10.0, -0.5, 1.0, 0.5, 0.5, 1.0, -0.5, -10.0, -5.0],
+            col_height: [0.2, 0.1, 0.1, 0.0, -0.1, -0.1, 0.0, 0.1, 0.1, 0.2],
+            in_multiplier: 0.0,
         }
     }
 }
@@ -87,6 +101,9 @@ impl Model for Simple {
         }
 
         let (cols, heights) = feature::cols_and_heights(board, max_height);
+        for (x, &h) in heights.iter().enumerate() {
+            score += self.col_height[x] * h as f32;
+        }
 
         let (holes, covered) = feature::holes_and_covered(cols, &heights);
 
@@ -101,13 +118,15 @@ impl Model for Simple {
         score += self.bumpiness_sq * bump_sq as f32;
         score += self.row_transitions * r_transitions as f32;
 
-        score += self.well_depth * well_depth as f32;
+        if let Some(col) = well_col {
+            score += self.well_col[col] * well_depth.min(4) as f32;
+        }
 
         // Extrinsic terms from the placement and game context.
         score += self.combo * game.combo.map_or(0, |c| c as i32) as f32;
-        score += self.b2b * game.b2b.map_or(0, |b| b as i32) as f32;
+        score += self.b2b * game.b2b.map_or(0, |b| (b as i32) + 1).min(8) as f32;
         score += self.incoming * game.incoming as f32;
-        
+
         // Attack-specific terms.
         score += self.clear[ctx.spin_type as usize][ctx.line_clears as usize];
         if ctx.is_perfect_clear {
@@ -116,19 +135,58 @@ impl Model for Simple {
         score += self.attack * ctx.total as f32;
         score += self.base_attack * ctx.base_attack as f32;
 
-        if ctx.is_special_clear() && let Some(col) = well_col {
+        // An ordinary clear of an active chain breaks it. Plain stacking does
+        // not: `chain_broken` is also true when no lines clear.
+        if ctx.b2b_count.is_some() && ctx.chain_broken && ctx.line_clears > 0 {
+            score += self.b2b_break;
+        }
+
+        if ctx.is_special_clear()
+            && let Some(col) = well_col
+        {
             let centered_at = placement.x();
             score += self.well_distance * (col as i32 - centered_at).abs() as f32;
         }
-        
+
+        // T-slot cutout probes (coldclear freestyle parity). Virtually fire
+        // available T's into real slots and reward the resulting clears.
+        let cutouts = feature::t_available(game);
+        if cutouts > 0 {
+            let mut probe = game.board;
+            for _ in 0..cutouts {
+                let Some((px, py)) = feature::well_known_tslot_left::<N>(&probe)
+                    .or_else(|| feature::well_known_tslot_right::<N>(&probe))
+                else {
+                    break;
+                };
+                let Some(lines) = feature::virtual_t_fire::<N>(&mut probe, px, py) else {
+                    break;
+                };
+                score += self.tslot[lines.min(3) as usize];
+                if lines < 2 {
+                    break;
+                }
+            }
+        }
+
+        // Combo ramp: grows every two extra consecutive clears.
+        score += self.combo_attack * game.combo.map_or(0, |c| c / 2) as f32;
+        if ctx.is_special_clear() {
+            score += game.combo.map_or(0, |c| c / 2) as f32 * self.in_multiplier;
+        }
         score
     }
 }
 
 mod feature {
     use rue_core::board::Board;
+    use rue_core::game::search::SearchGame;
     use rue_core::header::TLINES;
     use rue_core::header::WIDTH;
+    use rue_core::piece::Piece;
+    use rue_core::placement::Move;
+    use rue_core::rotation::Rotation;
+    use rue_core::spin::Spin;
 
     const ROW_MASK: u64 = (1u64 << WIDTH) - 1;
 
@@ -283,9 +341,124 @@ mod feature {
         (holes, covered)
     }
 
+    /// Returns the height (topmost filled row + 1) of each column.
+    fn column_heights<const N: usize>(board: &Board<N>) -> [usize; WIDTH as usize] {
+        let mut heights = [0usize; WIDTH as usize];
+        for (x, h) in heights.iter_mut().enumerate() {
+            let mut y = 0usize;
+            let mut band = N;
+            while band > 0 {
+                band -= 1;
+                let w = board.0[band];
+                if w == 0 {
+                    continue;
+                }
+                let mut row = TLINES as usize;
+                while row > 0 {
+                    row -= 1;
+                    let bit = row * WIDTH as usize + x;
+                    if w & (1u64 << bit) != 0 {
+                        y = band * TLINES as usize + row + 1;
+                        break;
+                    }
+                }
+                if y != 0 {
+                    break;
+                }
+            }
+            *h = y;
+        }
+        heights
+    }
+
+    /// Port of coldclear's `well_known_tslot_left`.
+    /// Returns the anchor `(x, y)` for a fitting T in South rotation.
+    pub fn well_known_tslot_left<const N: usize>(board: &Board<N>) -> Option<(i32, i32)> {
+        let heights = column_heights(board);
+        let total = Board::<N>::total_height();
+        for x in 0..(WIDTH as usize - 2) {
+            let y = heights[x] as i32;
+            if heights[x + 1] as i32 >= y {
+                continue;
+            }
+            if y < 1 || y + 1 >= total {
+                continue;
+            }
+            let rx = x + 2;
+            if !board.get(rx as i32, y - 1) {
+                continue;
+            }
+            if board.get(rx as i32, y) {
+                continue;
+            }
+            if !board.get(rx as i32, y + 1) {
+                continue;
+            }
+            return Some((x as i32 + 1, y));
+        }
+        None
+    }
+
+    /// Mirror of [`well_known_tslot_left`].
+    pub fn well_known_tslot_right<const N: usize>(board: &Board<N>) -> Option<(i32, i32)> {
+        let heights = column_heights(board);
+        let total = Board::<N>::total_height();
+        for x in 2..WIDTH as usize {
+            let y = heights[x] as i32;
+            if heights[x - 1] as i32 >= y {
+                continue;
+            }
+            if y < 1 || y + 1 >= total {
+                continue;
+            }
+            let lx = x - 2;
+            if !board.get(lx as i32, y - 1) {
+                continue;
+            }
+            if board.get(lx as i32, y) {
+                continue;
+            }
+            if !board.get(lx as i32, y + 1) {
+                continue;
+            }
+            return Some((x as i32 - 1, y));
+        }
+        None
+    }
+
+    /// Places a virtual T into the slot at `(x, y)`; returns lines cleared.
+    /// Returns `None` when the placement would overlap or clear nothing.
+    pub fn virtual_t_fire<const N: usize>(board: &mut Board<N>, x: i32, y: i32) -> Option<u64> {
+        if y + 2 >= Board::<N>::total_height() {
+            return None;
+        }
+        let mv = Move::new(Piece::T, x, y, Rotation::South, Spin::None);
+        for (cx, cy) in mv.cells() {
+            if board.get(cx, cy) {
+                return None;
+            }
+        }
+        let lines = board.do_move(mv);
+        if lines > 0 { Some(lines) } else { None }
+    }
+
+    /// Number of T's available soon: next 7 queue pieces plus the hold.
+    pub fn t_available<const N: usize>(game: &SearchGame<N>) -> usize {
+        let in_queue = game.queue.iter().take(7).any(|p| *p == Piece::T);
+        let held = game.hold == Some(Piece::T);
+        usize::from(in_queue) + usize::from(held)
+    }
+
     #[cfg(test)]
     mod parity {
         use super::*;
+        use rue_core::{buffer::Buffer, game::QUEUE_SIZE};
+
+        fn fill(board: &mut Board<8>, cells: &[(i32, i32)]) {
+            for &(x, y) in cells {
+                board.set(x, y);
+            }
+        }
 
         fn ref_column_heights(board: &Board<8>) -> [usize; WIDTH as usize] {
             let mut heights = [0; WIDTH as usize];
@@ -418,6 +591,142 @@ mod feature {
                 assert_eq!(ref_c, new_c);
                 assert_eq!(ref_rt, new_rt);
             }
+        }
+
+        fn left_tsd_board() -> Board<8> {
+            let mut board = Board::empty();
+            fill(
+                &mut board,
+                &[
+                    (0, 5),
+                    (0, 6),
+                    (1, 5),
+                    (1, 6),
+                    (2, 5),
+                    (2, 6),
+                    (3, 0),
+                    (3, 1),
+                    (3, 2),
+                    (3, 3),
+                    (3, 4),
+                    (3, 5),
+                    (4, 0),
+                    (4, 1),
+                    (4, 2),
+                    (5, 5),
+                    (5, 7),
+                    (6, 5),
+                    (6, 6),
+                    (7, 5),
+                    (7, 6),
+                    (8, 5),
+                    (8, 6),
+                    (9, 5),
+                    (9, 6),
+                ],
+            );
+            board
+        }
+
+        fn right_tsd_board() -> Board<8> {
+            let mut board = Board::empty();
+            fill(
+                &mut board,
+                &[
+                    (0, 5),
+                    (0, 6),
+                    (1, 5),
+                    (1, 6),
+                    (2, 5),
+                    (2, 6),
+                    (3, 5),
+                    (3, 6),
+                    (4, 5),
+                    (4, 7),
+                    (5, 0),
+                    (5, 1),
+                    (5, 2),
+                    (6, 0),
+                    (6, 1),
+                    (6, 2),
+                    (6, 3),
+                    (6, 4),
+                    (6, 5),
+                    (7, 5),
+                    (7, 6),
+                    (8, 5),
+                    (8, 6),
+                    (9, 5),
+                    (9, 6),
+                ],
+            );
+            board
+        }
+
+        #[test]
+        fn tslot_left_clears_two() {
+            let board = left_tsd_board();
+            assert_eq!(well_known_tslot_left::<8>(&board), Some((4, 6)));
+            assert_eq!(well_known_tslot_right::<8>(&board), None);
+            let mut probe = board;
+            assert_eq!(virtual_t_fire::<8>(&mut probe, 4, 6), Some(2));
+        }
+
+        #[test]
+        fn tslot_right_clears_two() {
+            let board = right_tsd_board();
+            assert_eq!(well_known_tslot_left::<8>(&board), None);
+            assert_eq!(well_known_tslot_right::<8>(&board), Some((5, 6)));
+            let mut probe = board;
+            assert_eq!(virtual_t_fire::<8>(&mut probe, 5, 6), Some(2));
+        }
+
+        #[test]
+        fn tslot_absent_on_flat_and_empty() {
+            assert_eq!(well_known_tslot_left::<8>(&Board::empty()), None);
+            assert_eq!(well_known_tslot_right::<8>(&Board::empty()), None);
+
+            let mut flat = Board::empty();
+            fill(
+                &mut flat,
+                &(0..10)
+                    .flat_map(|x| (0..6).map(move |y| (x, y)))
+                    .collect::<Vec<_>>(),
+            );
+            assert_eq!(well_known_tslot_left::<8>(&flat), None);
+            assert_eq!(well_known_tslot_right::<8>(&flat), None);
+        }
+
+        #[test]
+        fn t_available_counts_queue_and_hold() {
+            let mut queue = Buffer::<Piece, { QUEUE_SIZE }>::new();
+            queue.push(Piece::I);
+            queue.push(Piece::T);
+            let game = SearchGame {
+                board: Board::empty(),
+                queue,
+                hold: Some(Piece::T),
+                combo: None,
+                b2b: None,
+                incoming: 0,
+            };
+            assert_eq!(t_available::<8>(&game), 2);
+        }
+
+        #[test]
+        fn t_available_zero_without_ts() {
+            let mut queue = Buffer::<Piece, { QUEUE_SIZE }>::new();
+            queue.push(Piece::I);
+            queue.push(Piece::J);
+            let game = SearchGame {
+                board: Board::empty(),
+                queue,
+                hold: None,
+                combo: None,
+                b2b: None,
+                incoming: 0,
+            };
+            assert_eq!(t_available::<8>(&game), 0);
         }
     }
 }

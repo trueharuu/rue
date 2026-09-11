@@ -14,6 +14,8 @@ use rue_core::placement::Move;
 use rue_core::render;
 use rue_core::rng::Rng;
 use rue_core::rule::DEFAULT;
+use rue_core::rule::Rule;
+use rue_core::spin::Spins;
 use rue_eval::simple::Simple;
 use rue_nav::path::Key;
 use rue_nav::path::generate_inlined;
@@ -24,7 +26,7 @@ use rue_search::SearchConfig;
 #[command(name = "rue_solo", about = "Record a beam-search solo run as a fumen")]
 struct Cli {
     /// Beam width.
-    #[arg(long, default_value_t = 500)]
+    #[arg(long, default_value_t = 5000)]
     width: usize,
 
     /// Number of pieces placed per search line.
@@ -44,18 +46,23 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
+    const RULE: Rule = Rule {
+        // spins: Spins::Stupid,
+        ..DEFAULT
+    };
     let model = Simple::default();
-    let mut search: BeamSearch<8, DEFAULT, Simple> = BeamSearch::new(
+    let mut search: BeamSearch<8, RULE, Simple> = BeamSearch::new(
         &model,
         SearchConfig {
             beam_width: cli.width,
             depth: cli.depth,
-            futility_delta: 0.0,
+            futility_delta: 15.0,
             time_budget: cli.pps.map(|pps| Duration::from_secs_f64(1.0 / pps)),
         },
     );
 
-    let mut game = Game::<8, DEFAULT> {
+
+    let mut game = Game::<8, RULE> {
         rng: Rng::new(),
         grng: Rng::new(),
         board: Board::empty(),
@@ -81,26 +88,28 @@ fn main() {
             break;
         }
 
-        let instant = Instant::now();
         let Some(result) = search.find_best_move(&game) else {
             println!("dead");
             break;
         };
         let best = result.best_move;
         let score = result.score;
-        let elapsed = instant.elapsed();
+        let elapsed = result.elapsed;
+        let budget = result
+            .budget
+            .map_or_else(|| "-".to_string(), |b| format!("{b:?}"));
 
         println!("{}", render::placement(&game.board, &best));
         println!("{best:?}");
-        let keys = finesse_keys(&game.board, best);
-        assert!(!keys.is_empty(), "can't actually do it");
-        println!(
-            "{}",
-            keys.iter()
-                .map(|k| format!("{k:?}"))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+        // let keys = finesse_keys(&game.board, best);
+        // assert!(!keys.is_empty(), "can't actually do it");
+        // println!(
+        //     "{}",
+        //     keys.iter()
+        //         .map(|k| format!("{k:?}"))
+        //         .collect::<Vec<_>>()
+        //         .join(" ")
+        // );
 
         let hold = game.hold.map_or_else(String::new, |p| p.to_string());
         let head = game
@@ -126,7 +135,8 @@ fn main() {
         pieces += 1;
         total_attack += attack.outgoing();
         println!(
-            "{score:.3} {elapsed:.2?} [{hold}]{head} sent {}/{}",
+            "{score:.3} {elapsed:.2?} w={} budget={budget} [{hold}]{head} sent {}/{}",
+            result.width,
             attack.outgoing(),
             attack.line_clears,
         );

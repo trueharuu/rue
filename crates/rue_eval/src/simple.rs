@@ -1,5 +1,5 @@
 use rue_core::game::attack::Attack;
-use rue_core::game::Game;
+use rue_core::game::search::SearchGame;
 use rue_core::placement::Move;
 use rue_core::rule::Rule;
 
@@ -17,11 +17,18 @@ pub struct Simple {
     pub well_depth: f32,
 
     // extrinsic features
-    pub attack: f32,
     pub combo: f32,
     pub b2b: f32,
-    pub pc: f32,
     pub incoming: f32,
+    
+    // attack
+    pub clear: [[f32; 5]; 3],
+    pub base_attack: f32,
+    pub attack: f32,
+    pub pc: f32,
+
+    // playstyle
+    pub well_distance: f32,
 }
 
 impl Default for Simple {
@@ -36,11 +43,19 @@ impl Default for Simple {
             bumpiness_sq: -0.1,
             row_transitions: -0.3,
             well_depth: 0.2,
-            attack: 2.0,
-            combo: 0.8,
+            attack: 0.5,
+            base_attack: 2.5,
+            combo: 0.3,
             b2b: 2.0,
             pc: 6.0,
             incoming: -0.5,
+            clear: [
+                [0.0, -10.0, -10.0, -10.0, 1.0],
+                [0.0, 0.5, 0.25, 0.25, 0.0],
+                [0.0, 0.75, 10.0, 1.0, 0.0],
+            ],
+            // reward spins that are far from the well
+            well_distance: 1.0,
         }
     }
 }
@@ -52,8 +67,8 @@ impl Model for Simple {
 
     fn evaluate<const N: usize, const RULE: Rule>(
         &self,
-        game: &Game<N, RULE>,
-        _placement: Move,
+        game: &SearchGame<N>,
+        placement: Move,
         ctx: Attack,
     ) -> f32 {
         let board = &game.board;
@@ -73,13 +88,12 @@ impl Model for Simple {
 
         let (cols, heights) = feature::cols_and_heights(board, max_height);
 
-        let (holes, covered) =
-            feature::holes_and_covered(cols, &heights);
+        let (holes, covered) = feature::holes_and_covered(cols, &heights);
 
         score += self.holes * holes as f32;
         score += self.cell_coveredness * covered as f32;
 
-        let (_, well_depth) = feature::find_well(&heights);
+        let (well_col, well_depth) = feature::find_well(&heights);
         let (bump, bump_sq) = feature::bumpiness(&heights, None);
         let r_transitions = feature::row_transitions::<N>(board, max_height);
 
@@ -90,14 +104,23 @@ impl Model for Simple {
         score += self.well_depth * well_depth as f32;
 
         // Extrinsic terms from the placement and game context.
-        score += self.attack * ctx.total as f32;
         score += self.combo * game.combo.map_or(0, |c| c as i32) as f32;
         score += self.b2b * game.b2b.map_or(0, |b| b as i32) as f32;
+        score += self.incoming * game.incoming as f32;
+        
+        // Attack-specific terms.
+        score += self.clear[ctx.spin_type as usize][ctx.line_clears as usize];
         if ctx.is_perfect_clear {
             score += self.pc;
         }
-        score += self.incoming * game.garbage_queue.total() as f32;
+        score += self.attack * ctx.total as f32;
+        score += self.base_attack * ctx.base_attack as f32;
 
+        if ctx.is_special_clear() && let Some(col) = well_col {
+            let centered_at = placement.x();
+            score += self.well_distance * (col as i32 - centered_at).abs() as f32;
+        }
+        
         score
     }
 }
@@ -306,10 +329,7 @@ mod feature {
             let mut total = 0u32;
             let mut y = 0usize;
             while y < max_height {
-                let v = rows[y]
-                    | rows[y + 1] << 16
-                    | rows[y + 2] << 32
-                    | rows[y + 3] << 48;
+                let v = rows[y] | rows[y + 1] << 16 | rows[y + 2] << 32 | rows[y + 3] << 48;
                 let nz = ((v + LANE_SHIFT_GUARD) >> 15) & LANE_LSB;
                 let xor = v ^ ((v >> 1) & LANE_SHIFT_GUARD);
                 total += (xor & LANE_LOW9).count_ones();

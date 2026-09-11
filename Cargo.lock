@@ -1327,6 +1327,7 @@ dependencies = [
 name = "rue_search"
 version = "0.1.0"
 dependencies = [
+ "rayon",
  "rue_core",
  "rue_eval",
  "rue_nav",

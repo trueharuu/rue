@@ -1,5 +1,7 @@
 //! Level expansion for beam search.
 
+use rue_core::game::ruleset::Ruleset;
+use rue_core::game::search::SearchGame;
 use rue_core::game::Game;
 use rue_core::placement::Move;
 use rue_core::rule::Rule;
@@ -8,10 +10,14 @@ use rue_nav::movegen::fast;
 
 use crate::node::Node;
 
-/// Shared scratch for one level expansion.
-pub(crate) struct Ctx<'a, 'm, const N: usize, const RULE: Rule, M: Model> {
-    pub model: &'m M,
-    pub out: &'a mut Vec<Node<N, RULE>>,
+/// Shared context for one level expansion.
+///
+/// The ruleset and model are shared read-only across workers; each worker
+/// provides its own output buffer.
+pub(crate) struct Ctx<'a, 'g, const N: usize, const RULE: Rule, M: Model> {
+    pub model: &'g M,
+    pub ruleset: &'g Ruleset,
+    pub out: &'a mut Vec<Node<N>>,
 }
 
 /// Expands the root state into level zero. Children carry their own move as
@@ -21,7 +27,7 @@ pub(crate) fn expand_root<const N: usize, const RULE: Rule, M: Model>(
     game: &Game<N, RULE>,
 ) {
     let root = Node {
-        game: *game,
+        game: SearchGame::from(game),
         root_move: Move::null(),
         score: 0.0,
     };
@@ -31,20 +37,20 @@ pub(crate) fn expand_root<const N: usize, const RULE: Rule, M: Model>(
 /// Expands one node into its children. Children inherit `parent.root_move`.
 pub(crate) fn expand_node<const N: usize, const RULE: Rule, M: Model>(
     ctx: &mut Ctx<'_, '_, N, RULE, M>,
-    parent: Node<N, RULE>,
+    parent: Node<N>,
 ) {
     emit(ctx, parent, false);
 }
 
 /// Emits the three branches of a node: no hold, held swap, and first hold.
 ///
-/// The branch selection happens inside `Game::play`, which consumes the queue
-/// and hold based on whether the placement differs from the front of the
-/// queue.
+/// The branch selection happens inside `SearchGame::play`, which consumes the
+/// queue and hold based on whether the placement differs from the front of
+/// the queue.
 #[inline]
 fn emit<const N: usize, const RULE: Rule, M: Model>(
     ctx: &mut Ctx<'_, '_, N, RULE, M>,
-    parent: Node<N, RULE>,
+    parent: Node<N>,
     first: bool,
 ) {
     let Some(current) = parent.game.queue.get(0).copied() else {
@@ -67,7 +73,7 @@ fn emit<const N: usize, const RULE: Rule, M: Model>(
 #[inline]
 fn push_placements<const N: usize, const RULE: Rule, M: Model>(
     ctx: &mut Ctx<'_, '_, N, RULE, M>,
-    parent: Node<N, RULE>,
+    parent: Node<N>,
     piece: rue_core::piece::Piece,
     first: bool,
 ) {
@@ -76,7 +82,7 @@ fn push_placements<const N: usize, const RULE: Rule, M: Model>(
 
     for mv in &moves {
         let mut child = parent.game;
-        let attack = child.play(mv);
+        let attack = child.play(mv, ctx.ruleset);
         let score = ctx.model.evaluate::<N, RULE>(&child, mv, attack);
         ctx.out.push(Node {
             game: child,

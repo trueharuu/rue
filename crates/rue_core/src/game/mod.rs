@@ -1,6 +1,7 @@
 pub mod ruleset;
 pub mod garbage;
 pub mod attack;
+pub mod search;
 
 use crate::board::Board;
 use crate::buffer::Buffer;
@@ -9,11 +10,11 @@ use crate::piece::Piece;
 use crate::placement::Move;
 use crate::rng::Rng;
 use crate::rule::Rule;
-use crate::spin::Spin;
 use crate::game::ruleset::Ruleset;
 use crate::game::garbage::GarbageQueue;
 use crate::game::attack::Attack;
-use crate::game::attack::compute_attack;
+
+pub use search::SearchGame;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Game<const N: usize, const RULE: Rule> {
@@ -61,60 +62,24 @@ impl<const N: usize, const RULE: Rule> Game<N, RULE> {
     /// does. The search uses this to simulate children without an RNG or
     /// garbage queue.
     pub fn play(&mut self, placement: Move) -> Attack {
-        let requires_hold = placement.piece() != self.queue[0];
-        let line_clears = self.board.do_move(placement) as u32;
+        let mut sim = SearchGame {
+            board: self.board,
+            queue: self.queue,
+            hold: self.hold,
+            combo: self.combo,
+            b2b: self.b2b,
+            incoming: self.garbage_queue.total(),
+        };
 
-        {
-            let has_held = self.hold.is_some();
+        let attack = sim.play(placement, &self.ruleset);
 
-            if !has_held && !requires_hold {
-                self.queue.remove(0);
-            } else if !has_held && requires_hold {
-                self.hold = Some(self.queue[0]);
-                self.queue.remove(0);
-                self.queue.remove(0);
-            } else if has_held && requires_hold {
-                self.hold = Some(self.queue[0]);
-                self.queue.remove(0);
-            } else if has_held && !requires_hold {
-                self.queue.remove(0);
-            }
-        }
+        self.board = sim.board;
+        self.queue = sim.queue;
+        self.hold = sim.hold;
+        self.combo = sim.combo;
+        self.b2b = sim.b2b;
 
-        let is_special_clear = placement.spin() != Spin::None || line_clears >= 4;
-        let is_pc = self.board == Board::<N>::empty() && line_clears > 0;
-        let pre_b2b = self.b2b;
-        let pre_combo = self.combo;
-
-        if line_clears > 0 {
-            match self.combo {
-                Some(c) => self.combo = Some(c + 1),
-                None => self.combo = Some(0),
-            }
-
-            if is_special_clear || (is_pc && self.ruleset.pc_b2b.is_some()) {
-                match self.b2b {
-                    Some(b) => self.b2b = Some(b + 1),
-                    None => self.b2b = Some(0),
-                }
-            } else {
-                self.b2b = None;
-            }
-        } else {
-            self.combo = None;
-        }
-
-        compute_attack(
-            &self.ruleset,
-            placement.spin(),
-            line_clears,
-            is_pc,
-            self.b2b,
-            self.combo,
-            pre_b2b,
-            pre_combo,
-            0,
-        )
+        attack
     }
 }
 

@@ -1,7 +1,8 @@
 use crate::game::ruleset::Ruleset;
 use crate::spin::Spin;
 
-/// The chaining bonus applied for rulesets where [`Ruleset::b2b_chaining`] is true.
+/// The chaining bonus applied for rulesets where [`Ruleset::b2b_chaining`] is
+/// true.
 #[must_use]
 pub fn b2b_chaining_bonus(b2b: u32, ruleset: &Ruleset) -> f64 {
     if b2b <= 1 {
@@ -93,9 +94,8 @@ pub fn compute_attack(
             .filter(|_| chain_broken)
             .filter(|b| *b + 1 > ruleset.b2b_charging_start)
             .map_or(0.0, |b| {
-                (f64::from(
-                    b - ruleset.b2b_charging_start + ruleset.back_to_back_bonus + 1,
-                ) * ruleset.garbage_multiplier)
+                (f64::from(b - ruleset.b2b_charging_start + ruleset.back_to_back_bonus + 1)
+                    * ruleset.garbage_multiplier)
                     .floor()
                     .max(0.0)
             })
@@ -163,5 +163,10 @@ impl Attack {
     #[must_use]
     pub fn outgoing(&self) -> u32 {
         self.total - self.canceled
+    }
+
+    #[must_use]
+    pub fn is_special_clear(&self) -> bool {
+        self.line_clears > 0 && (self.spin_type != Spin::None || self.line_clears >= 4)
     }
 }

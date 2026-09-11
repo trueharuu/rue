@@ -35,4 +35,10 @@ pub struct SearchResult {
     pub best_move: Move,
     /// Score of the final board on that line.
     pub score: f32,
+    /// Beam width of the accepted search pass.
+    pub width: usize,
+    /// Wall time spent producing this result.
+    pub elapsed: Duration,
+    /// The configured time budget, if any.
+    pub budget: Option<Duration>,
 }

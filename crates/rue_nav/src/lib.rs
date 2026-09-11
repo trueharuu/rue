@@ -5,3 +5,4 @@
 pub mod buffer;
 pub mod input;
 pub mod movegen;
+pub mod path;

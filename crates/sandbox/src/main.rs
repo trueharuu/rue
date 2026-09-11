@@ -28,9 +28,11 @@ fn main() {
     b.set(8, 0);
     b.set(8, 1);
     b.set(9, 0);
-    b.set(9, 1);
+    // b.set(9, 1);
 
-    let p = Piece::J;
+    println!("{}", render::board(&b));
+
+    let p = Piece::T;
     let mvs_f = fast::movegen::<8, DEFAULT>(&b, p, 20, 0);
     let mvs_o = oracle::movegen::<8, DEFAULT>(&b, p, 20, 0);
 

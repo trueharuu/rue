@@ -337,6 +337,6 @@ pub fn horizontal_tuck<const N: usize>(s: Board<N>, usable: &Board<N>) -> Board<
         let w = s.0[i];
         result[i] = ((w << 1) & ML) | ((w >> 1) & MR);
     }
-    
+
     Board(result) & *usable
 }

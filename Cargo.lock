@@ -395,6 +395,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fumen"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae2f2ce743f92bfe03f12f73731e39ac8b525a2f4044db2f098c224442c65ab1"
+
+[[package]]
 name = "futures"
 version = "0.3.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1285,6 +1291,13 @@ name = "rue_core"
 version = "0.1.0"
 
 [[package]]
+name = "rue_eval"
+version = "0.1.0"
+dependencies = [
+ "rue_core",
+]
+
+[[package]]
 name = "rue_macro"
 version = "0.1.0"
 dependencies = [
@@ -1308,6 +1321,27 @@ dependencies = [
  "rayon",
  "rue_core",
  "rue_nav",
+]
+
+[[package]]
+name = "rue_search"
+version = "0.1.0"
+dependencies = [
+ "rue_core",
+ "rue_eval",
+ "rue_nav",
+]
+
+[[package]]
+name = "rue_solo"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "fumen",
+ "rue_core",
+ "rue_eval",
+ "rue_nav",
+ "rue_search",
 ]
 
 [[package]]

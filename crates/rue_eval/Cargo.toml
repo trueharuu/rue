@@ -1,0 +1,10 @@
+[package]
+name = "rue_eval"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rue_core = { version = "0.1.0", path = "../rue_core" }
+
+[lints]
+workspace = true

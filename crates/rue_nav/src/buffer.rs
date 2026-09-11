@@ -59,7 +59,8 @@ impl<const N: usize> Moves<N> {
         true
     }
 
-    /// Returns `true` if the buffer contains the given [`Move`], `false` otherwise.
+    /// Returns `true` if the buffer contains the given [`Move`], `false`
+    /// otherwise.
     #[inline]
     #[must_use]
     pub fn contains(&self, mv: Move) -> bool {

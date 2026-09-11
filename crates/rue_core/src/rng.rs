@@ -3,7 +3,7 @@
 use std::time::SystemTime;
 
 /// TETR.IO's random number generator.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rng {
     seed: i32,
 }

@@ -66,6 +66,45 @@ impl<const N: usize> Board<N> {
         0
     }
 
+    /// Inserts `lines` garbage rows onto the bottom of the board, shifting
+    /// existing content up. Each garbage row has all columns filled except
+    /// column `gap`.
+    #[inline]
+    pub fn insert_garbage(&mut self, lines: u32, gap_col: u32) {
+        debug_assert!(lines > 0 && lines <= TLINES as u32 * N as u32);
+        debug_assert!(gap_col < WIDTH as u32);
+
+        let mut remaining = lines;
+        while remaining > 0 {
+            let band = (self.height() / TLINES) as usize;
+            if band >= N {
+                break;
+            }
+
+            let band_lines = std::cmp::min(remaining, TLINES as u32);
+            self.push_garbage(band_lines as u8, gap_col as u8);
+            remaining -= band_lines;
+        }
+    }
+
+    /// Pushes `count` garbage rows onto the bottom of the board, shifting
+    /// existing content up. Each garbage row has all columns filled except
+    /// column `gap`.
+    pub fn push_garbage(&mut self, count: u8, gap: u8) {
+        *self = self.shifted(0, i32::from(count));
+
+        let row_mask = 0x3FFu64 & !(1u64 << gap);
+        let mut i = 0;
+        while i < count {
+            let band = (i32::from(i) / TLINES) as usize;
+            let offset = (i32::from(i) % TLINES) as u32;
+            if band < N {
+                self.0[band] |= row_mask << (offset * WIDTH as u32);
+            }
+            i += 1;
+        }
+    }
+
     #[inline]
     #[must_use]
     pub fn any(&self) -> bool {

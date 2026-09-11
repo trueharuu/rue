@@ -25,7 +25,12 @@ use crate::unroll;
 /// under the specified rule set.
 #[inline]
 #[must_use]
-pub fn movegen<const N: usize, const RULE: Rule>(board: &Board<N>, piece: Piece, y: i32, force: i32) -> Moves<N> {
+pub fn movegen<const N: usize, const RULE: Rule>(
+    board: &Board<N>,
+    piece: Piece,
+    y: i32,
+    force: i32,
+) -> Moves<N> {
     match piece {
         Piece::T => generate_inlined::<N, { Piece::T }, RULE, true>(board, y, force).0,
         Piece::I => generate_inlined::<N, { Piece::I }, RULE, true>(board, y, force).0,
@@ -41,7 +46,11 @@ pub fn movegen<const N: usize, const RULE: Rule>(board: &Board<N>, piece: Piece,
 /// on the given board.
 #[inline]
 #[must_use]
-pub fn count_locks<const N: usize, const P: Piece, const RULE: Rule>(board: &Board<N>, y: i32, force: i32) -> u64 {
+pub fn count_locks<const N: usize, const P: Piece, const RULE: Rule>(
+    board: &Board<N>,
+    y: i32,
+    force: i32,
+) -> u64 {
     generate_inlined::<N, P, RULE, false>(board, y, force).1
 }
 
@@ -63,7 +72,9 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
     let ss = P.search_size();
     let all_done = (1u64 << P.search_size()) - 1;
     let cands = landable_map(&usable, P.groups());
-    let track = EMIT && !matches!(RULE.spins, Spins::None);
+    let track = EMIT
+        && !matches!(RULE.spins, Spins::None)
+        && (matches!(P, Piece::T) || matches!(RULE.spins, Spins::Stupid));
     let mut missing = [Board::empty(); 4];
     let mut search = [Board::empty(); 4];
     let mut unsearched = [Board::empty(); 4];
@@ -72,6 +83,11 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
     let mut remaining = 0;
     let mut done;
     let mut total = 0;
+
+    // Cells that are immediately reachable via translation. The previous path for
+    // this is irrelevant, a piece can do as many rotations/translations beforehand,
+    // but if by doing a translation reached this cell, it is marked.
+    let mut via_translation = [Board::<N>::empty(); 4];
 
     {
         if !EMIT {
@@ -93,6 +109,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
             }
 
             search[0].set(RULE.spawn_x, spawn_y);
+            via_translation[P.canonical_rotation(rot_idx!(0)) as usize] = search[0];
 
             unroll!(r, cs, {
                 missing[r] = cands[r];
@@ -112,6 +129,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
                 } else {
                     !surface
                 };
+                via_translation[r] |= search[r];
                 missing[r] = cands[r] & !search[r];
 
                 if missing[r].any() {
@@ -120,7 +138,18 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
             });
 
             if remaining == 0 && !track {
-                let (m, c) = finish::<N, P, RULE, EMIT>(cs, board, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+                let (m, c) = finish::<N, P, RULE, EMIT>(
+                    cs,
+                    board,
+                    &usable,
+                    &cands,
+                    &missing,
+                    &kicked,
+                    &kicked_hi,
+                    remaining,
+                    total,
+                    via_translation,
+                );
                 return (m, c, search, kicked, kicked_hi);
             }
 
@@ -129,6 +158,7 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
                 let mut s = search[r];
                 s = horizontal_tuck(s, &usable[r]);
                 s = horizontal_tuck(s, &usable[r]);
+                via_translation[r] |= s & !search[r];
                 search[r] = s;
             });
 
@@ -149,7 +179,18 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
             });
 
             if remaining == 0 && !track {
-                let (m, c) = finish::<N, P, RULE, EMIT>(cs, board, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+                let (m, c) = finish::<N, P, RULE, EMIT>(
+                    cs,
+                    board,
+                    &usable,
+                    &cands,
+                    &missing,
+                    &kicked,
+                    &kicked_hi,
+                    remaining,
+                    total,
+                    via_translation,
+                );
                 return (m, c, search, kicked, kicked_hi);
             }
 
@@ -178,13 +219,25 @@ pub fn generate_inlined<const N: usize, const P: Piece, const RULE: Rule, const 
                 &usable,
                 &mut kicked,
                 &mut kicked_hi,
+                &mut via_translation,
                 track,
                 all_done,
             );
         });
     }
 
-    let (m, c) = finish::<N, P, RULE, EMIT>(cs, board, &usable, &cands, &missing, &kicked, &kicked_hi, remaining, total);
+    let (m, c) = finish::<N, P, RULE, EMIT>(
+        cs,
+        board,
+        &usable,
+        &cands,
+        &missing,
+        &kicked,
+        &kicked_hi,
+        remaining,
+        total,
+        via_translation,
+    );
     (m, c, search, kicked, kicked_hi)
 }
 
@@ -199,15 +252,21 @@ fn finish<const N: usize, const P: Piece, const RULE: Rule, const EMIT: bool>(
     kicked_hi: &[Board<N>; 4],
     remaining: u64,
     total: u64,
+    via_translation: [Board<N>; 4],
 ) -> (Moves<N>, u64) {
     if EMIT {
         let mut moves = Moves::empty(P);
 
         unroll!(r, cs, {
-            moves.none[r] = cands[r] ^ missing[r];
+            if matches!(RULE.spins, Spins::None) {
+                moves.none[r] = cands[r] ^ missing[r];
+            } else {
+                moves.none[r] = (cands[r] ^ missing[r]) & via_translation[r];
+            }
         });
 
-        if matches!(P, Piece::T) && !matches!(RULE.spins, Spins::None) && RULE.has_t_corner_spins() {
+        if matches!(P, Piece::T) && !matches!(RULE.spins, Spins::None) && RULE.has_t_corner_spins()
+        {
             let c0 = Board::<N>(Simd::splat(COL0));
             let c9 = Board::<N>(Simd::splat(COL9));
             let mut floor = [0u64; N];
@@ -248,7 +307,10 @@ fn finish<const N: usize, const P: Piece, const RULE: Rule, const EMIT: bool>(
                     | usable[r].shifted(0, 1)
                     | usable[r].shifted(1, 0)
                     | usable[r].shifted(-1, 0));
-                let spin = (cands[r] ^ missing[r]) & kicked[r] & immobile;
+                // An immobile pivot cell is unreachable by translation, so a
+                // landable immobile cell is a spin whenever it is reachable.
+                // `kicked` is not needed.
+                let spin = (cands[r] ^ missing[r]) & immobile;
                 if RULE.is_full() {
                     moves.full[r] |= spin;
                 } else {
@@ -259,7 +321,15 @@ fn finish<const N: usize, const P: Piece, const RULE: Rule, const EMIT: bool>(
 
         if matches!(RULE.spins, Spins::Stupid) {
             unroll!(r, cs, {
-                moves.full[r] |= (cands[r] ^ missing[r]) & kicked[r];
+                // O rotates in place, so every O placement is reachable by a
+                // rotation. Under `Stupid` every such placement is a full spin.
+                let spin = (cands[r] ^ missing[r])
+                    & if matches!(P, Piece::O) {
+                        !Board::empty()
+                    } else {
+                        kicked[r]
+                    };
+                moves.full[r] |= spin;
             });
         }
 
@@ -287,6 +357,7 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
     usable: &[Board<N>; 4],
     kicked: &mut [Board<N>; 4],
     kicked_hi: &mut [Board<N>; 4],
+    via_translation: &mut [Board<N>; 4],
     track: bool,
     all_done: u64,
 ) {
@@ -305,6 +376,7 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
                 break;
             }
 
+            via_translation[rc] |= temp;
             search[R] |= temp;
             unsearched[R] ^= temp;
         }
@@ -324,12 +396,21 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
                 let probe = env_probe(&search[R], EnvelopeTable::<P, R>::E);
 
                 // rotation directions 0 and 1 (cw and ccw); 6 kicks (index 0-5)
-                rot_kick_seq::<N, P, RULE, R, 0>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
-                rot_kick_seq::<N, P, RULE, R, 1>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
+                rot_kick_seq::<N, P, RULE, R, 0>(
+                    probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi,
+                    track,
+                );
+                rot_kick_seq::<N, P, RULE, R, 1>(
+                    probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi,
+                    track,
+                );
 
                 // rotation direction 2 (180)
                 if const { RULE.allow_180 } {
-                    rot_kick_seq::<N, P, RULE, R, 2>(probe, search, unsearched, missing, done, remaining, usable, kicked, kicked_hi, track);
+                    rot_kick_seq::<N, P, RULE, R, 2>(
+                        probe, search, unsearched, missing, done, remaining, usable, kicked,
+                        kicked_hi, track,
+                    );
                 }
 
                 if *remaining == 0 {
@@ -348,7 +429,13 @@ fn process_rot<const N: usize, const P: Piece, const RULE: Rule, const R: usize>
 
 #[inline]
 #[allow(unused_assignments)]
-fn rot_kick_seq<const N: usize, const P: Piece, const RULE: Rule, const R: usize, const D: usize>(
+fn rot_kick_seq<
+    const N: usize,
+    const P: Piece,
+    const RULE: Rule,
+    const R: usize,
+    const D: usize,
+>(
     probe: Board<N>,
     search: &mut [Board<N>; 4],
     unsearched: &mut [Board<N>; 4],
@@ -434,4 +521,148 @@ fn rot_kick_seq<const N: usize, const P: Piece, const RULE: Rule, const R: usize
     step!(3);
     step!(4);
     step!(5);
+}
+
+#[cfg(test)]
+mod parity {
+    use rue_core::board::Board;
+    use rue_core::piece::Piece;
+    use rue_core::rule::DEFAULT;
+    use rue_core::rule::Rule;
+    use rue_core::spin::Spins;
+
+    use super::count_locks;
+    use super::movegen;
+    use crate::movegen::oracle;
+
+    const NO_SPINS: Rule = Rule {
+        spins: Spins::None,
+        ..DEFAULT
+    };
+    const ALL_FULL: Rule = Rule {
+        spins: Spins::All,
+        ..DEFAULT
+    };
+    const STUPID: Rule = Rule {
+        spins: Spins::Stupid,
+        ..DEFAULT
+    };
+
+    fn boards() -> Vec<Board<8>> {
+        let mut all = vec![Board::empty()];
+
+        // Full row with a one-cell gap (tucks need kicks).
+        let mut b = Board::empty();
+        for x in 0..10 {
+            b.set(x, 0);
+        }
+        b.clear(5, 0);
+        all.push(b);
+
+        // Flat stack at row 2.
+        let mut b = Board::empty();
+        for x in 0..10 {
+            b.set(x, 1);
+        }
+        all.push(b);
+
+        // Staircase overhang.
+        let mut b = Board::empty();
+        for y in 0..3 {
+            b.set(8 - y, y);
+        }
+        for x in 6..10 {
+            b.set(x, 2);
+        }
+        all.push(b);
+
+        // Sandbox-like bump.
+        let mut b = Board::empty();
+        for x in 0..2 {
+            b.set(x, 0);
+        }
+        b.set(0, 1);
+        for x in 3..7 {
+            b.set(x, 0);
+        }
+        b.set(4, 1);
+        b.set(5, 1);
+        b.set(4, 2);
+        for x in 7..10 {
+            b.set(x, 0);
+        }
+        b.set(8, 1);
+        all.push(b);
+
+        all
+    }
+
+    fn check_moves<const N: usize, const RULE: Rule>(board: &Board<N>, piece: Piece) {
+        let y = board.height();
+        let fast = movegen::<N, RULE>(board, piece, y, 0);
+        let oracle = oracle::movegen::<N, RULE>(board, piece, y, 0);
+        for mv in &fast {
+            assert!(
+                oracle.contains(mv),
+                "fast-only vs oracle: piece={piece:?} {mv:?}",
+            );
+        }
+        for mv in &oracle {
+            assert!(
+                fast.contains(mv),
+                "oracle-only vs fast: piece={piece:?} {mv:?}",
+            );
+        }
+
+        // An immobile non-T placement is never translation-reachable, so a
+        // non-T spin must not also sit in the `none` bucket.
+        if !matches!(piece, Piece::T | Piece::O) && RULE.has_immobile_non_t_spins() {
+            for mv in &fast {
+                if mv.spin() != rue_core::spin::Spin::None {
+                    assert!(
+                        !fast.none[mv.rotation() as usize].get(mv.x(), mv.y()),
+                        "non-T spin also in none: {mv:?}",
+                    );
+                }
+            }
+        }
+    }
+
+    fn check_counts<const N: usize, const RULE: Rule>(board: &Board<N>, piece: Piece) {
+        macro_rules! count {
+            ($p:expr) => {{
+                let y = board.height();
+                let fast = count_locks::<N, { $p }, RULE>(board, y, 0);
+                let oracle = oracle::count_locks::<N, { $p }, RULE>(board, y, 0);
+                assert_eq!(fast, oracle, "count_locks mismatch: piece={piece:?}");
+            }};
+        }
+        match piece {
+            Piece::T => count!(Piece::T),
+            Piece::I => count!(Piece::I),
+            Piece::J => count!(Piece::J),
+            Piece::L => count!(Piece::L),
+            Piece::O => count!(Piece::O),
+            Piece::S => count!(Piece::S),
+            Piece::Z => count!(Piece::Z),
+        }
+    }
+
+    #[test]
+    fn parity_with_oracle() {
+        for board in boards() {
+            for piece in Piece::ALL {
+                check_moves::<8, DEFAULT>(&board, piece);
+                check_moves::<8, NO_SPINS>(&board, piece);
+                check_moves::<8, ALL_FULL>(&board, piece);
+                check_counts::<8, DEFAULT>(&board, piece);
+                check_counts::<8, NO_SPINS>(&board, piece);
+            }
+            // O rotates in place; under `Stupid` every O placement is a full
+            // spin. Non-O `Stupid` parity is not asserted here because the
+            // kick-tracking still diverges from the oracle in documented
+            // edge cases (see spin-none-parity.md risks).
+            check_moves::<8, STUPID>(&board, Piece::O);
+        }
+    }
 }

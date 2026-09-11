@@ -1,17 +1,15 @@
 use std::mem::MaybeUninit;
 
-use rue_core::placement::Move;
-
 const CAP: usize = 4096;
 const MASK: usize = CAP - 1;
 
-pub struct Queue {
-    buf: [MaybeUninit<Move>; CAP],
+pub struct Queue<T> {
+    buf: [MaybeUninit<T>; CAP],
     front: usize,
     back: usize,
 }
 
-impl Queue {
+impl<T> Queue<T> {
     #[inline]
     #[must_use]
     pub fn new() -> Self {
@@ -24,14 +22,14 @@ impl Queue {
     }
 
     #[inline]
-    pub fn push_back(&mut self, val: Move) {
+    pub fn push_back(&mut self, val: T) {
         assert!(self.back - self.front != CAP, "queue full");
         self.buf[self.back & MASK].write(val);
         self.back = self.back.wrapping_add(1);
     }
 
     #[inline]
-    pub fn pop_front(&mut self) -> Option<Move> {
+    pub fn pop_front(&mut self) -> Option<T> {
         if self.front == self.back {
             return None;
         }
@@ -47,7 +45,7 @@ impl Queue {
     }
 }
 
-impl Default for Queue {
+impl<T> Default for Queue<T> {
     fn default() -> Self {
         Self::new()
     }

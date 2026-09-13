@@ -1,7 +1,9 @@
 use rue_core::game::attack::Attack;
 use rue_core::game::search::SearchGame;
+use rue_core::piece::Piece;
 use rue_core::placement::Move;
 use rue_core::rule::Rule;
+use rue_core::spin::Spin;
 
 use crate::model::Model;
 
@@ -32,11 +34,10 @@ pub struct Simple {
 
     // spin-chain readiness, modeled on coldclear freestyle
     pub tslot: [f32; 4],
-    pub combo_attack: f32,
 
     // playstyle
     pub well_distance: f32,
-    pub in_multiplier: f32,
+    pub t_waste: f32,
 }
 
 impl Default for Simple {
@@ -44,32 +45,30 @@ impl Default for Simple {
         Self {
             holes: -4.0,
             cell_coveredness: -3.5,
-            height: -0.5,
-            height_upper_half: -1.0,
+            height: -2.5,
+            height_upper_half: -3.0,
             height_upper_quarter: -5.0,
             bumpiness: -0.3,
             bumpiness_sq: -0.1,
             row_transitions: -0.3,
             well_depth: 0.2,
             attack: 0.5,
-            base_attack: 2.5,
+            base_attack: 0.0,
             combo: 0.3,
-            b2b: 2.0,
-            b2b_break: -6.0,
-            pc: 6.0,
+            b2b: 8.0,
+            b2b_break: 0.0,
+            pc: 2.0,
             incoming: -0.5,
-            tslot: [0.0, 3.0, 8.0, 14.0],
-            combo_attack: 6.0,
+            tslot: [0.0, 2.0, 0.0, 0.0],
             clear: [
-                [0.0, -10.0, -10.0, -10.0, -1.0],
-                [0.0, -1.0, -1.25, -1.25, 0.0],
-                [0.0, -0.75, 5.0, -1.0, 0.0],
+                [0.0, -1.0, -1.0, -1.0, 1.0],
+                [0.0, 2.0, -0.25, -0.25, 0.0],
+                [0.0, -0.75, 2.0, 8.0, 0.0],
             ],
-
-            well_distance: -1.0,
-            well_col: [-5.0, -10.0, -0.5, 1.0, 0.5, 0.5, 1.0, -0.5, -10.0, -5.0],
-            col_height: [0.2, 0.1, 0.1, 0.0, -0.1, -0.1, 0.0, 0.1, 0.1, 0.2],
-            in_multiplier: 0.0,
+            well_distance: 0.0,
+            well_col: [0.0; 10],
+            col_height: [0.2, 0.1, 0.0, -0.1, -0.5, -0.5, -0.1, 0.0, 0.1, 0.2],
+            t_waste: -2.0,
         }
     }
 }
@@ -148,8 +147,6 @@ impl Model for Simple {
             score += self.well_distance * (col as i32 - centered_at).abs() as f32;
         }
 
-        // T-slot cutout probes (coldclear freestyle parity). Virtually fire
-        // available T's into real slots and reward the resulting clears.
         let cutouts = feature::t_available(game);
         if cutouts > 0 {
             let mut probe = game.board;
@@ -169,11 +166,11 @@ impl Model for Simple {
             }
         }
 
-        // Combo ramp: grows every two extra consecutive clears.
-        score += self.combo_attack * game.combo.map_or(0, |c| c / 2) as f32;
-        if ctx.is_special_clear() {
-            score += game.combo.map_or(0, |c| c / 2) as f32 * self.in_multiplier;
+        // T waste is defined as T placements that are not FULL spins
+        if placement.piece() == Piece::T && (ctx.spin_type != Spin::Full || ctx.line_clears == 0) {
+            score += self.t_waste;
         }
+
         score
     }
 }
@@ -452,7 +449,8 @@ mod feature {
     #[cfg(test)]
     mod parity {
         use super::*;
-        use rue_core::{buffer::Buffer, game::QUEUE_SIZE};
+        use rue_core::buffer::Buffer;
+        use rue_core::game::QUEUE_SIZE;
 
         fn fill(board: &mut Board<8>, cells: &[(i32, i32)]) {
             for &(x, y) in cells {

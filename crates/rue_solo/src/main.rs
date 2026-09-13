@@ -55,14 +55,15 @@ struct Cli {
     seed: Option<i32>,
 }
 
+const RULE: Rule = Rule {
+    // spins: Spins::Stupid,
+    ..DEFAULT
+};
+
 /// Entry point.
 fn main() {
     let cli = Cli::parse();
 
-    const RULE: Rule = Rule {
-        // spins: Spins::Stupid,
-        ..DEFAULT
-    };
     let model = Simple::default();
     let mut search: BeamSearch<8, RULE, Simple> = BeamSearch::new(
         &model,
@@ -94,10 +95,6 @@ fn main() {
     let mut pieces = 0u32;
     let mut chain_pieces = 0u32;
     let mut chain_b2b = 0u32;
-    let mut clear_chain = 0u32;
-    let mut max_chain = 0u32;
-    let mut spin_chain = 0u32;
-    let mut cur_chain_spin = false;
     let mut all_pieces = 0u32;
     let mut all_spins = 0u32;
     let mut t_pieces = 0u32;
@@ -130,15 +127,15 @@ fn main() {
 
         println!("{}", render::placement(&game.board, &best));
         println!("{best:?}");
-        // let keys = finesse_keys(&game.board, best);
-        // assert!(!keys.is_empty(), "can't actually do it");
-        // println!(
-        //     "{}",
-        //     keys.iter()
-        //         .map(|k| format!("{k:?}"))
-        //         .collect::<Vec<_>>()
-        //         .join(" ")
-        // );
+        let keys = finesse_keys(&game.board, best);
+        assert!(!keys.is_empty(), "can't actually do it");
+        println!(
+            "{}",
+            keys.iter()
+                .map(|k| format!("{k:?}"))
+                .collect::<Vec<_>>()
+                .join(" ")
+        );
 
         let hold = game.hold.map_or_else(String::new, |p| p.to_string());
         let head = game
@@ -189,19 +186,7 @@ fn main() {
         if attack.line_clears >= 4 {
             quads += 1;
         }
-        if attack.line_clears > 0 {
-            clear_chain += 1;
-            if best.spin() != Spin::None {
-                cur_chain_spin = true;
-            }
-            max_chain = max_chain.max(clear_chain);
-            if cur_chain_spin {
-                spin_chain = spin_chain.max(clear_chain);
-            }
-        } else {
-            clear_chain = 0;
-            cur_chain_spin = false;
-        }
+
         println!(
             "{score:.3} {elapsed:.2?} w={} budget={budget} [{hold}]{head} sent {}/{}",
             result.width,
@@ -214,7 +199,7 @@ fn main() {
             f64::from(chain_b2b) / (f64::from(chain_pieces) / 7.0)
         };
         println!(
-            "n={pieces} b2b={:?} combo={:?} chain={clear_chain}/{max_chain} spin_chain={spin_chain} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3} apm={:.3}",
+            "n={pieces} b2b={:?} combo={:?} pieces/second={:.3} attack/piece={:.3} b2b/bag={:.3} apm={:.3}",
             game.b2b,
             game.combo,
             f64::from(pieces) / i_total.elapsed().as_secs_f64(),

@@ -25,7 +25,7 @@ pub struct Rule {
 pub const DEFAULT: Rule = Rule {
     spins: Spins::AllMini,
     inf_sdf: true,
-    allow_180: true,
+    allow_180: false,
     das: true,
     spawn_x: 4,
     spawn_y: 21,

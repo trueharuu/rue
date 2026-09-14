@@ -38,37 +38,40 @@ pub struct Simple {
     // playstyle
     pub well_distance: f32,
     pub t_waste: f32,
+    pub height_difference: f32,
 }
 
 impl Default for Simple {
     fn default() -> Self {
         Self {
             holes: -4.0,
-            cell_coveredness: -3.5,
-            height: -2.5,
+            cell_coveredness: -4.5,
+            height: -0.5,
             height_upper_half: -3.0,
             height_upper_quarter: -5.0,
             bumpiness: -0.3,
             bumpiness_sq: -0.1,
             row_transitions: -0.3,
-            well_depth: 0.2,
             attack: 0.5,
-            base_attack: 0.0,
+            base_attack: 2.0,
             combo: 0.3,
-            b2b: 8.0,
-            b2b_break: 0.0,
+            b2b: 3.0,
+            b2b_break: -20.0,
             pc: 2.0,
             incoming: -0.5,
-            tslot: [0.0, 2.0, 0.0, 0.0],
+            tslot: [0.0, 5.0, 20.0, 13.0],
             clear: [
-                [0.0, -1.0, -1.0, -1.0, 1.0],
-                [0.0, 2.0, -0.25, -0.25, 0.0],
-                [0.0, -0.75, 2.0, 8.0, 0.0],
+                [0.0, -5.0, -5.0, -5.0, -10.0],
+                [0.0, 2.5, -1.0, -2.5, 0.0],
+                [0.0, -0.75, 5.0, -1.0, 0.0],
             ],
-            well_distance: 0.0,
-            well_col: [0.0; 10],
-            col_height: [0.2, 0.1, 0.0, -0.1, -0.5, -0.5, -0.1, 0.0, 0.1, 0.2],
-            t_waste: -2.0,
+            well_distance: 2.0,
+            well_depth: 1.2,
+            well_col: [-0.2, -1.0, -0.2, 1.0, 0.4, 0.4, 1.0, -0.2, -1.0, -0.2],
+            col_height: [0.1, 0.05, 0.0, -0.05, -0.25, -0.25, -0.05, 0.0, 0.05, 0.1],
+            // col_height: [-1.0; 10],
+            t_waste: -0.3,
+            height_difference: -1.2,
         }
     }
 }
@@ -136,7 +139,7 @@ impl Model for Simple {
 
         // An ordinary clear of an active chain breaks it. Plain stacking does
         // not: `chain_broken` is also true when no lines clear.
-        if ctx.b2b_count.is_some() && ctx.chain_broken && ctx.line_clears > 0 {
+        if ctx.line_clears > 0 && ctx.spin_type == Spin::None {
             score += self.b2b_break;
         }
 
@@ -169,6 +172,18 @@ impl Model for Simple {
         // T waste is defined as T placements that are not FULL spins
         if placement.piece() == Piece::T && (ctx.spin_type != Spin::Full || ctx.line_clears == 0) {
             score += self.t_waste;
+        }
+
+        // Height difference is defined to be |left - right| where, if a `well` exists,
+        // `left` is the height of the column to the left of the well and `right` is the
+        // height of the column to the right of the well.
+        if let Some(col) = well_col
+            && col > 0
+            && col < 9
+        {
+            let left = heights[col - 1] as f32;
+            let right = heights[col + 1] as f32;
+            score += self.height_difference * (left - right).abs();
         }
 
         score

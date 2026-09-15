@@ -17,7 +17,8 @@ mod config;
 mod expand;
 mod node;
 
-pub use config::{SearchConfig, SearchResult};
+pub use config::SearchConfig;
+pub use config::SearchResult;
 
 use rayon::prelude::*;
 
@@ -30,7 +31,9 @@ use rue_core::placement::Move;
 use rue_core::rule::Rule;
 use rue_eval::model::Model;
 
-use crate::expand::{expand_node, expand_root, Ctx};
+use crate::expand::Ctx;
+use crate::expand::expand_node;
+use crate::expand::expand_root;
 use crate::node::Node;
 
 /// Depth-limited beam search over root placements.
@@ -77,8 +80,7 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
 
                 loop {
                     let pass_start = Instant::now();
-                    let (result, finished) =
-                        self.search_once(game, width, Some(started + budget));
+                    let (result, finished) = self.search_once(game, width, Some(started + budget));
 
                     if finished || best.is_none() {
                         if let Some(result) = result
@@ -109,8 +111,8 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
                         break;
                     };
 
-                    let target = (remaining.as_secs_f64() * self.config.budget_safety / rate)
-                        as usize;
+                    let target =
+                        (remaining.as_secs_f64() * self.config.budget_safety / rate) as usize;
                     let target = target
                         .max(start_width)
                         .min(width.saturating_mul(2))
@@ -153,6 +155,7 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
             let mut ctx: Ctx<'_, '_, N, RULE, M> = Ctx {
                 model: self.model,
                 ruleset,
+                config: &self.config,
                 out: &mut self.out,
             };
             expand_root(&mut ctx, game);
@@ -197,6 +200,7 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
     fn expand_level(&mut self, parents: &[Node<N>], ruleset: &Ruleset) -> usize {
         let threads = rayon::current_num_threads().max(1);
         let chunk = parents.len().div_ceil(threads.saturating_mul(4)).max(1);
+        let config = self.config;
 
         let parts: Vec<Vec<Node<N>>> = parents
             .par_chunks(chunk)
@@ -205,6 +209,7 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
                 let mut ctx: Ctx<'_, '_, N, RULE, M> = Ctx {
                     model: self.model,
                     ruleset,
+                    config: &config,
                     out: &mut out,
                 };
                 for &parent in group {
@@ -261,18 +266,20 @@ impl<'m, const N: usize, const RULE: Rule, M: Model + Sync> BeamSearch<'m, N, RU
 
 /// Total order: higher score first, lower raw move first as a tiebreak.
 fn cmp<const N: usize>(a: &Node<N>, b: &Node<N>) -> Ordering {
-    b.score.total_cmp(&a.score).then_with(|| a.root_move.raw().cmp(&b.root_move.raw()))
+    b.score
+        .total_cmp(&a.score)
+        .then_with(|| a.root_move.raw().cmp(&b.root_move.raw()))
 }
 
 #[cfg(test)]
 mod tests {
     use rue_core::board::Board;
     use rue_core::buffer::Buffer;
+    use rue_core::game::Game;
     use rue_core::game::QUEUE_SIZE;
-use rue_core::game::garbage::GarbageQueue;
+    use rue_core::game::garbage::GarbageQueue;
     use rue_core::game::ruleset::SEASON_2;
     use rue_core::game::search::SearchGame;
-    use rue_core::game::Game;
     use rue_core::piece::Piece;
     use rue_core::rng::Rng;
     use rue_core::rule::DEFAULT;
@@ -346,7 +353,11 @@ use rue_core::game::garbage::GarbageQueue;
             assert_eq!(sg.hold, b.hold, "search hold mismatch");
             assert_eq!(sg.combo, b.combo, "search combo mismatch");
             assert_eq!(sg.b2b, b.b2b, "search b2b mismatch");
-            assert_eq!(sg.incoming, b.garbage_queue.total(), "search incoming mismatch");
+            assert_eq!(
+                sg.incoming,
+                b.garbage_queue.total(),
+                "search incoming mismatch"
+            );
         }
     }
 
@@ -375,6 +386,8 @@ use rue_core::game::garbage::GarbageQueue;
                 time_budget: None,
                 futility_delta: 0.0,
                 budget_safety: 0.85,
+                attack_weight: 0.5,
+                max_depth_factor: 2.45,
             },
         );
 
@@ -409,6 +422,8 @@ use rue_core::game::garbage::GarbageQueue;
             time_budget: None,
             futility_delta: 0.0,
             budget_safety: 0.85,
+            attack_weight: 0.5,
+            max_depth_factor: 2.45,
         };
 
         let mut s1 = BeamSearch::new(&model, config);

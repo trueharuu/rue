@@ -17,6 +17,11 @@ pub struct SearchConfig {
     pub futility_delta: f32,
     /// Fraction of the remaining budget a scheduled widening pass may target.
     pub budget_safety: f64,
+    /// Weight of the cumulative-attack term in the composite score.
+    pub attack_weight: f32,
+    /// Cap for `sqrt(path_len + 1)` normalization of the cumulative-attack
+    /// term.
+    pub max_depth_factor: f32,
 }
 
 impl Default for SearchConfig {
@@ -27,6 +32,8 @@ impl Default for SearchConfig {
             time_budget: None,
             futility_delta: 15.0,
             budget_safety: 0.85,
+            attack_weight: 0.5,
+            max_depth_factor: 2.45,
         }
     }
 }

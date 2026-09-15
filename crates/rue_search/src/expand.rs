@@ -1,13 +1,14 @@
 //! Level expansion for beam search.
 
+use rue_core::game::Game;
 use rue_core::game::ruleset::Ruleset;
 use rue_core::game::search::SearchGame;
-use rue_core::game::Game;
 use rue_core::placement::Move;
 use rue_core::rule::Rule;
 use rue_eval::model::Model;
 use rue_nav::movegen::fast;
 
+use crate::config::SearchConfig;
 use crate::node::Node;
 
 /// Shared context for one level expansion.
@@ -17,6 +18,7 @@ use crate::node::Node;
 pub(crate) struct Ctx<'a, 'g, const N: usize, const RULE: Rule, M: Model> {
     pub model: &'g M,
     pub ruleset: &'g Ruleset,
+    pub config: &'g SearchConfig,
     pub out: &'a mut Vec<Node<N>>,
 }
 
@@ -30,6 +32,8 @@ pub(crate) fn expand_root<const N: usize, const RULE: Rule, M: Model>(
         game: SearchGame::from(game),
         root_move: Move::null(),
         score: 0.0,
+        cum_attack: 0,
+        path_len: 0,
     };
     emit(ctx, root, true);
 }
@@ -83,11 +87,18 @@ fn push_placements<const N: usize, const RULE: Rule, M: Model>(
     for mv in &moves {
         let mut child = parent.game;
         let attack = child.play(mv, ctx.ruleset);
-        let score = ctx.model.evaluate::<N, RULE>(&child, mv, attack);
+        let cum_attack = parent.cum_attack.saturating_add(attack.total);
+        let depth_factor = ((parent.path_len + 1) as f32)
+            .sqrt()
+            .min(ctx.config.max_depth_factor);
+        let score = ctx.model.evaluate::<N, RULE>(&child, mv, attack)
+            + ctx.config.attack_weight * (cum_attack as f32 / depth_factor);
         ctx.out.push(Node {
             game: child,
             root_move: if first { mv } else { parent.root_move },
             score,
+            cum_attack,
+            path_len: parent.path_len + 1,
         });
     }
 }

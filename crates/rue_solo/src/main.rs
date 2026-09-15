@@ -73,6 +73,8 @@ fn main() {
             futility_delta: cli.futility,
             time_budget: cli.pps.map(|pps| Duration::from_secs_f64(1.0 / pps)),
             budget_safety: cli.safety,
+            attack_weight: 0.5,
+            max_depth_factor: 2.45,
         },
     );
 

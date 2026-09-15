@@ -13,4 +13,8 @@ pub(crate) struct Node<const N: usize> {
     pub root_move: Move,
     /// Score of `game`.
     pub score: f32,
+    /// Attack sent so far along this line, root to `game`.
+    pub cum_attack: u32,
+    /// Number of placements on this line, root to `game`.
+    pub path_len: u32,
 }

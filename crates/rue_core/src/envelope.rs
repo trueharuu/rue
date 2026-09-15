@@ -6,7 +6,8 @@ use crate::data::KICKS_O;
 use crate::data::KICKS_TJLSZ;
 use crate::piece::Piece;
 
-/// Computes the min/max kick reach `(xmin, xmax, ymin, ymax)` across cw/ccw kicks.
+/// Computes the min/max kick reach `(xmin, xmax, ymin, ymax)` across cw/ccw
+/// kicks.
 #[inline]
 #[must_use]
 pub const fn env_union(p: Piece, r: usize) -> (i32, i32, i32, i32) {
@@ -50,7 +51,8 @@ impl<const P: Piece, const R: usize> EnvelopeTable<P, R> {
     pub const E: (i32, i32, i32, i32) = env_union(P, R);
 }
 
-/// Expands occupied cells by envelope reach to produce candidate collision probes.
+/// Expands occupied cells by envelope reach to produce candidate collision
+/// probes.
 #[inline]
 #[must_use]
 pub fn env_probe<const N: usize>(s: &Board<N>, e: (i32, i32, i32, i32)) -> Board<N> {

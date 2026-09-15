@@ -25,13 +25,14 @@ const DEFAULT_WEIGHTS: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../weight
 /// Global environment configuration.
 static ENV: OnceLock<Env> = OnceLock::new();
 
-/// Returns a reference to the global environment configuration. Panics if the environment has not been initialized.
+/// Returns a reference to the global environment configuration. Panics if the
+/// environment has not been initialized.
 pub fn env() -> &'static Env {
     ENV.get().expect("Env must be initialized before access")
 }
 
-/// Initializes the global environment configuration from the `.env` file and environment variables.
-/// Panics if the `TOKEN` variable is not set.
+/// Initializes the global environment configuration from the `.env` file and
+/// environment variables. Panics if the `TOKEN` variable is not set.
 pub fn parse_env() {
     let token = std::env::var("TOKEN").expect("TOKEN must be set in .env");
     let weights = std::env::var("WEIGHTS").unwrap_or_else(|_| DEFAULT_WEIGHTS.to_string());

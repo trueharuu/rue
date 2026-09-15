@@ -28,7 +28,8 @@ pub struct Master {
 }
 
 impl Master {
-    /// Creates a new master client, connecting to the server and setting up event handlers.
+    /// Creates a new master client, connecting to the server and setting up
+    /// event handlers.
     pub async fn new(cfg: Config) -> Result<Self, ApiError> {
         let c = Master {
             client: Client::new(ClientOptions {
@@ -54,8 +55,8 @@ impl Master {
         Ok(c)
     }
 
-    /// Initializes the master client, setting its status and registering event handlers for invites,
-    /// DMs, and shutdown events.
+    /// Initializes the master client, setting its status and registering event
+    /// handlers for invites, DMs, and shutdown events.
     async fn init(&self) {
         self.client
             .social

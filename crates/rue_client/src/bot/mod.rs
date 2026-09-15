@@ -1,5 +1,6 @@
 //! Main bot logic.
-//! Contains the bot struct, configuration, state management, and event handling.
+//! Contains the bot struct, configuration, state management, and event
+//! handling.
 //!
 //! The bot connects to a server through triangle. It joins or creates a room.
 //! It listens for events such as chat messages and game updates.
@@ -54,7 +55,8 @@ pub struct Bot {
     /// Includes pieces per second (PPS), burst mode, and finesse style.
     pub config: RwLock<Config>,
     /// The current bot state.
-    /// Includes whether the bot is enabled, the game state, and the restriction level.
+    /// Includes whether the bot is enabled, the game state, and the restriction
+    /// level.
     pub state: RwLock<State>,
     /// The settings handler used to check room settings against constraints.
     pub settings: SettingsHandler,
@@ -103,7 +105,8 @@ impl From<std::io::Error> for BotError {
 }
 
 impl Bot {
-    /// Creates a new bot instance, connecting to the server and joining or creating a room based on the given target.
+    /// Creates a new bot instance, connecting to the server and joining or
+    /// creating a room based on the given target.
     pub async fn new(
         target: Target,
         global_config: crate::settings::Config,

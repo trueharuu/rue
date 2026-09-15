@@ -41,12 +41,14 @@ impl Bot {
         None
     }
 
-    /// Calculates the maximum burst speed multiplier based on the current pieces per second (PPS).
+    /// Calculates the maximum burst speed multiplier based on the current
+    /// pieces per second (PPS).
     fn max_burst_speed(pps: f64) -> f64 {
         (2.0 - pps.ln() / 20f64.ln()).max(1.0)
     }
 
-    /// Calculates the burst factor based on the current engine state and optional opponent state.
+    /// Calculates the burst factor based on the current engine state and
+    /// optional opponent state.
     pub(super) async fn burst_factor(&self, engine: &Engine, opponent: Option<&Engine>) -> f64 {
         const BUFFER: f64 = 8.0;
         const FACTOR_DEFENSIVE: f64 = 0.3;
@@ -85,7 +87,8 @@ impl Bot {
         (size / BUFFER * factor + 1.0).min(Self::max_burst_speed(pps))
     }
 
-    /// Calculates the effective pieces per second (PPS) based on the current engine state and optional opponent state.
+    /// Calculates the effective pieces per second (PPS) based on the current
+    /// engine state and optional opponent state.
     async fn effective_pps(&self, engine: &Engine, opponent: Option<&Engine>) -> f64 {
         let pps = self.config.read().await.pps;
         if !self.config.read().await.burst {
@@ -97,8 +100,9 @@ impl Bot {
         }
     }
 
-    /// Calculates the frame at which the next piece will spawn based on the current engine state,
-    /// optional next hard drop frame, and optional opponent state.
+    /// Calculates the frame at which the next piece will spawn based on the
+    /// current engine state, optional next hard drop frame, and optional
+    /// opponent state.
     pub(super) async fn next_piece_frame(
         &self,
         engine: &Engine,

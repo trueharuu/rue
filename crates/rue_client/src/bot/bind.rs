@@ -219,7 +219,8 @@ impl Bot {
             });
     }
 
-    /// Handles a single room update, checking constraints and updating the bot's enabled state accordingly.
+    /// Handles a single room update, checking constraints and updating the
+    /// bot's enabled state accordingly.
     pub(super) async fn handle_room_update(
         self: &Arc<Self>,
         data: recv::room::Update,

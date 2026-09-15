@@ -39,7 +39,8 @@ impl Rng {
         self.seed
     }
 
-    /// Advances the randomiser state, and returns the seed as a float within `[0, 1)`.
+    /// Advances the randomiser state, and returns the seed as a float within
+    /// `[0, 1)`.
     #[inline]
     #[must_use]
     pub const fn next_float(&mut self) -> f64 {

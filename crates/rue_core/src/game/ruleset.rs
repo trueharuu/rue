@@ -44,11 +44,13 @@ pub struct Ruleset {
     pub combo_floor_scale: f64,
     /// Garbage sent when a perfect clear is achieveed.
     pub pc_garbage: u32,
-    /// Back-to-back gained when a perfect clear is achieved. If [`None`], non-B2B perfect clears will break B2B.
+    /// Back-to-back gained when a perfect clear is achieved. If [`None`],
+    /// non-B2B perfect clears will break B2B.
     pub pc_b2b: Option<u32>,
     /// Whether to apply a chaining bonus for long back-to-back chains.
     pub b2b_chaining: bool,
-    /// Whether to apply a surge bonus for long back-to-back chains, which sends the current B2B on the next non-B2B line clear.
+    /// Whether to apply a surge bonus for long back-to-back chains, which sends
+    /// the current B2B on the next non-B2B line clear.
     pub b2b_charging: bool,
     /// Global garbage multiplier.
     pub garbage_multiplier: f64,

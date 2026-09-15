@@ -1,18 +1,18 @@
-pub mod ruleset;
-pub mod garbage;
 pub mod attack;
+pub mod garbage;
+pub mod ruleset;
 pub mod search;
 
 use crate::board::Board;
 use crate::buffer::Buffer;
+use crate::game::attack::Attack;
+use crate::game::garbage::GarbageQueue;
+use crate::game::ruleset::Ruleset;
 use crate::header::WIDTH;
 use crate::piece::Piece;
 use crate::placement::Move;
 use crate::rng::Rng;
 use crate::rule::Rule;
-use crate::game::ruleset::Ruleset;
-use crate::game::garbage::GarbageQueue;
-use crate::game::attack::Attack;
 
 pub use search::SearchGame;
 
@@ -84,4 +84,3 @@ impl<const N: usize, const RULE: Rule> Game<N, RULE> {
         attack
     }
 }
-

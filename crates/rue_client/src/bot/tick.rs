@@ -9,7 +9,8 @@ use crate::utils::{self};
 
 use super::Bot;
 
-/// A strictly-increasing frame counter that can represent subframes as tenths of a frame.
+/// A strictly-increasing frame counter that can represent subframes as tenths
+/// of a frame.
 struct FrameCounter(f64);
 impl FrameCounter {
     pub fn new(v: u64) -> Self {

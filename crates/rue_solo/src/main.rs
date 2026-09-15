@@ -53,6 +53,14 @@ struct Cli {
     /// Seed the piece RNG for repeatable runs.
     #[arg(long)]
     seed: Option<i32>,
+
+    /// Override the cumulative path attack weight. 0 disables it.
+    #[arg(long)]
+    attack_weight: Option<f32>,
+
+    /// Override the combo weight. 0 disables the combo term.
+    #[arg(long)]
+    combo: Option<f32>,
 }
 
 const RULE: Rule = Rule {
@@ -64,7 +72,10 @@ const RULE: Rule = Rule {
 fn main() {
     let cli = Cli::parse();
 
-    let model = Simple::default();
+    let mut model = Simple::default();
+    if let Some(v) = cli.combo {
+        model.combo = v;
+    }
     let mut search: BeamSearch<8, RULE, Simple> = BeamSearch::new(
         &model,
         SearchConfig {
@@ -73,7 +84,7 @@ fn main() {
             futility_delta: cli.futility,
             time_budget: cli.pps.map(|pps| Duration::from_secs_f64(1.0 / pps)),
             budget_safety: cli.safety,
-            attack_weight: 0.5,
+            attack_weight: cli.attack_weight.unwrap_or(0.5),
             max_depth_factor: 2.45,
         },
     );

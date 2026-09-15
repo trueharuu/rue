@@ -4,10 +4,12 @@ use crate::buffer::Buffer;
 
 /// The garbage queue, which is a FIFO of incoming garbage lines.
 /// The last element is the next group of lines to be added.
-/// We can safely assume that no singular attack will send more than [`u32::MAX`] at once.
+/// We can safely assume that no singular attack will send more than
+/// [`u32::MAX`] at once.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct GarbageQueue {
-    /// The segments of garbage in the queue. Each segment represents a group of lines to be added.
+    /// The segments of garbage in the queue. Each segment represents a group of
+    /// lines to be added.
     pub segments: Buffer<u32, 256>,
 }
 
@@ -22,7 +24,8 @@ impl GarbageQueue {
     }
 
     /// Recieve garbage from the opponent, and add it to the queue.
-    /// The `max` parameter is the maximum total lines that can be in the queue at once. Any excess lines are discarded.
+    /// The `max` parameter is the maximum total lines that can be in the queue
+    /// at once. Any excess lines are discarded.
     #[inline]
     pub fn recieve(&mut self, mut amount: u32, max: u32) {
         let current_total: u32 = self.segments.iter().sum();
@@ -39,9 +42,11 @@ impl GarbageQueue {
         }
     }
 
-    /// Tanks or cancels up to `max` lines of garbage at once, returning the segments tanked.
+    /// Tanks or cancels up to `max` lines of garbage at once, returning the
+    /// segments tanked.
     ///
-    /// The caller is able to determine if this is a tank or cancel by optionally discarding the result.
+    /// The caller is able to determine if this is a tank or cancel by
+    /// optionally discarding the result.
     #[inline]
     #[must_use]
     pub fn tank(&mut self, max: u32) -> Vec<u32> {
@@ -71,15 +76,20 @@ impl GarbageQueue {
     }
 
     // TODO: implement this.
-    /// Returns the cleanliness of the garbage queue, which is a measure of how "clean" the queue is, within `[0.0, 1.0]`
-    /// A cleanliness of 1.0 means the queue is completely clean, while a cleanliness of 0.0 means the queue is completely cheese.
+    /// Returns the cleanliness of the garbage queue, which is a measure of how
+    /// "clean" the queue is, within `[0.0, 1.0]` A cleanliness of 1.0 means
+    /// the queue is completely clean, while a cleanliness of 0.0 means the
+    /// queue is completely cheese.
     ///
-    /// "Cheese" is a queue with many small segments, while "clean" is a queue with large segments.
-    /// Typically, a "clean" send is one that is >= 4 lines.
-    /// 
-    /// However, we want to avoid things that are cheesy in the beginning but clean in the end.
-    /// 
-    /// For now, we will define cleanliness as the amount of garbage divided by the number of segments, normalized to [0.0, 1.0].
+    /// "Cheese" is a queue with many small segments, while "clean" is a queue
+    /// with large segments. Typically, a "clean" send is one that is >= 4
+    /// lines.
+    ///
+    /// However, we want to avoid things that are cheesy in the beginning but
+    /// clean in the end.
+    ///
+    /// For now, we will define cleanliness as the amount of garbage divided by
+    /// the number of segments, normalized to [0.0, 1.0].
     #[inline]
     #[must_use]
     pub fn cleanliness(&self) -> f64 {

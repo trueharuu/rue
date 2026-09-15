@@ -61,7 +61,8 @@ impl Rotation {
         }
     }
 
-    /// Converts a compact integer to a [`Rotation`], wrapping the input modulo 4.
+    /// Converts a compact integer to a [`Rotation`], wrapping the input modulo
+    /// 4.
     #[inline]
     #[must_use]
     pub const fn from_u8(word: u8) -> Self {

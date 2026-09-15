@@ -1,4 +1,5 @@
-use std::{mem::MaybeUninit, ops::Index};
+use std::mem::MaybeUninit;
+use std::ops::Index;
 
 pub struct Buffer<T, const N: usize> {
     data: [MaybeUninit<T>; N],

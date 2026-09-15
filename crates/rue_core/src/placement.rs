@@ -75,8 +75,8 @@ impl Move {
     /// Decodes the [`Piece`] component.
     ///
     /// # Panics
-    /// Panics if the piece is out of range (0..7). This should never happen if the
-    /// [`Move`] was created with [`Move::new`].
+    /// Panics if the piece is out of range (0..7). This should never happen if
+    /// the [`Move`] was created with [`Move::new`].
     #[inline]
     #[must_use]
     pub const fn piece(self) -> Piece {
@@ -142,8 +142,8 @@ impl Move {
 
     /// Returns the canonical form of this [`Move`].
     ///
-    /// Symmetrical [`Move`]s can have the same [`Move::cells`] result, with different
-    /// values:
+    /// Symmetrical [`Move`]s can have the same [`Move::cells`] result, with
+    /// different values:
     /// - [`Piece::T`], [`Piece::J`], and [`Piece::L`] has 1 canonical state
     /// - [`Piece::I`], [`Piece::S`], and [`Piece::Z`] have 2 canonical states
     /// - [`Piece::O`] has 1 canonical state

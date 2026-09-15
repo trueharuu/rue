@@ -9,7 +9,8 @@ use crate::spin::Spins;
 pub struct Rule {
     /// Spin allowance policy used during move generation.
     pub spins: Spins,
-    /// Enables infinite soft drop, lowering the piece as far as possible per input.
+    /// Enables infinite soft drop, lowering the piece as far as possible per
+    /// input.
     pub inf_sdf: bool,
     /// Allows 180-degree rotations during move generation.
     pub allow_180: bool,
@@ -32,14 +33,16 @@ pub const DEFAULT: Rule = Rule {
 };
 
 impl Rule {
-    /// Returns `true` if the rule uses 3-corner detection for T-spin classification, `false` otherwise.
+    /// Returns `true` if the rule uses 3-corner detection for T-spin
+    /// classification, `false` otherwise.
     #[inline]
     #[must_use]
     pub const fn has_t_corner_spins(&self) -> bool {
         !matches!(self.spins, Spins::None)
     }
 
-    /// Returns `true` if the rule uses immobile detection for T-spin classification, `false` otherwise.
+    /// Returns `true` if the rule uses immobile detection for T-spin
+    /// classification, `false` otherwise.
     #[inline]
     #[must_use]
     pub const fn has_immobile_t_spins(&self) -> bool {
@@ -49,7 +52,8 @@ impl Rule {
         )
     }
 
-    /// Returns `true` if the rule uses immobile detection for any non-T piece, `false` otherwise.
+    /// Returns `true` if the rule uses immobile detection for any non-T piece,
+    /// `false` otherwise.
     #[inline]
     #[must_use]
     pub const fn has_immobile_non_t_spins(&self) -> bool {
@@ -59,7 +63,8 @@ impl Rule {
         )
     }
 
-    /// Returns `true` if spins are upgraded to full spins when immobile, `false` otherwise.
+    /// Returns `true` if spins are upgraded to full spins when immobile,
+    /// `false` otherwise.
     #[inline]
     #[must_use]
     pub const fn is_full(&self) -> bool {

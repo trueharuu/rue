@@ -7,7 +7,8 @@ pub trait Model {
     /// The name of the model.
     fn name(&self) -> &str;
 
-    /// Evaluates a single placement on a game state, returning a scalar [`f32`] score.
+    /// Evaluates a single placement on a game state, returning a scalar [`f32`]
+    /// score.
     ///
     /// `game` holds the resulting board, queue, hold, chain, and incoming
     /// garbage state after `placement`. `ctx` is the attack produced by the

@@ -2,10 +2,10 @@
 
 use crate::board::Board;
 use crate::buffer::Buffer;
+use crate::game::QUEUE_SIZE;
 use crate::game::attack::Attack;
 use crate::game::attack::compute_attack;
 use crate::game::ruleset::Ruleset;
-use crate::game::QUEUE_SIZE;
 use crate::piece::Piece;
 use crate::placement::Move;
 use crate::rule::Rule;

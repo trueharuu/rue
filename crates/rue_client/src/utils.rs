@@ -23,7 +23,8 @@ pub fn frames_till_next_piece(pieces: u32, pps: f64, time: f64, min_pps: f64, ma
     lower.max(upper.min(res))
 }
 
-/// Generates a normally distributed random number with the given mean and standard deviation.
+/// Generates a normally distributed random number with the given mean and
+/// standard deviation.
 pub fn normal_random(mean: f64, stdev: f64) -> f64 {
     let mut rng = Rng::new();
     loop {

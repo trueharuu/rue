@@ -33,7 +33,8 @@ impl Piece {
         Piece::Z,
     ];
 
-    /// Converts a compact integer to a piece, returning `None` when out of range.
+    /// Converts a compact integer to a piece, returning `None` when out of
+    /// range.
     #[inline]
     #[must_use]
     pub const fn from_u8(word: u8) -> Option<Self> {
@@ -64,8 +65,8 @@ impl Piece {
         }
     }
 
-    /// Maps from an arbitrary [`Rotation`] to its canonical representative, if this piece
-    /// has symmetry.
+    /// Maps from an arbitrary [`Rotation`] to its canonical representative, if
+    /// this piece has symmetry.
     #[inline]
     #[must_use]
     pub const fn canonical_rotation(self, rot: Rotation) -> Rotation {

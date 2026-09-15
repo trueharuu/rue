@@ -54,11 +54,11 @@ impl Default for Simple {
             row_transitions: -0.3,
             attack: 0.5,
             base_attack: 2.0,
-            combo: 0.3,
             b2b: 3.0,
             b2b_break: -20.0,
             pc: 2.0,
             incoming: -0.5,
+            combo: 0.3,
             tslot: [0.0, 5.0, 20.0, 13.0],
             clear: [
                 [0.0, -5.0, -5.0, -5.0, -10.0],
@@ -125,7 +125,9 @@ impl Model for Simple {
         }
 
         // Extrinsic terms from the placement and game context.
-        score += self.combo * game.combo.map_or(0, |c| c as i32) as f32;
+        if let Some(c) = game.combo {
+            score += self.combo * feature::combo_curve(c);
+        }
         score += self.b2b * game.b2b.map_or(0, |b| (b as i32) + 1).min(8) as f32;
         score += self.incoming * game.incoming as f32;
 
@@ -461,6 +463,11 @@ mod feature {
         usize::from(in_queue) + usize::from(held)
     }
 
+    /// Mild superlinear curvature for the combo count, capped at 9.
+    pub fn combo_curve(count: u32) -> f32 {
+        (count.min(9) as f32).powf(1.3)
+    }
+
     #[cfg(test)]
     mod parity {
         use super::*;
@@ -740,6 +747,17 @@ mod feature {
                 incoming: 0,
             };
             assert_eq!(t_available::<8>(&game), 0);
+        }
+
+        /// The curve is monotone, mild, and index-safe past combo 9.
+        #[test]
+        fn combo_curve_shape_and_cap() {
+            let c = |n: u32| combo_curve(n);
+            assert_eq!(c(0), 0.0);
+            assert_eq!(c(1), 1.0);
+            assert!(c(2) > c(1) && c(9) > c(2));
+            assert_eq!(c(12), c(9));
+            assert_eq!(c(u32::MAX), c(9));
         }
     }
 }

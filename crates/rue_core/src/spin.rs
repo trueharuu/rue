@@ -27,16 +27,22 @@ pub enum Spins {
     None = 0,
     /// Only allow T-spins via 3-corner detection.
     T = 1,
-    /// Only allow T-spins via 3-corner detection, plus immobile spins for T pieces marked as [`Spin::Mini`].
+    /// Only allow T-spins via 3-corner detection, plus immobile spins for T
+    /// pieces marked as [`Spin::Mini`].
     TPlus = 2,
-    /// [`Spins::T`], plus immobile spins for all non-T pieces, marked as [`Spin::Mini`].
+    /// [`Spins::T`], plus immobile spins for all non-T pieces, marked as
+    /// [`Spin::Mini`].
     AllMini = 3,
-    /// [`Spins::TPlus`], plus immobile spins for all non-T pieces, marked as [`Spin::Mini`].
+    /// [`Spins::TPlus`], plus immobile spins for all non-T pieces, marked as
+    /// [`Spin::Mini`].
     AllMiniPlus = 4,
-    /// [`Spins::T`], plus immobile spins for all non-T pieces, marked as [`Spin::Full`].
+    /// [`Spins::T`], plus immobile spins for all non-T pieces, marked as
+    /// [`Spin::Full`].
     All = 5,
-    /// [`Spins::TPlus`], plus immobile spins for all non-T pieces, marked as [`Spin::Full`].
+    /// [`Spins::TPlus`], plus immobile spins for all non-T pieces, marked as
+    /// [`Spin::Full`].
     AllPlus = 6,
-    /// All placements reached via rotation are a spin, marked as [`Spin::Full`].
+    /// All placements reached via rotation are a spin, marked as
+    /// [`Spin::Full`].
     Stupid = 7,
 }

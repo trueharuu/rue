@@ -40,11 +40,13 @@ pub struct GameState {
 }
 
 /// Current room state.
-/// Contains whether the bot is enabled, the game state, and the restriction level.
+/// Contains whether the bot is enabled, the game state, and the restriction
+/// level.
 #[derive(Debug, Clone)]
 pub struct State {
     /// Whether the bot is enabled.
-    /// Also records whether the bot should attempt to enable itself when disabled.
+    /// Also records whether the bot should attempt to enable itself when
+    /// disabled.
     pub enabled: EnabledState,
     /// The current game state.
     pub game: Option<GameState>,

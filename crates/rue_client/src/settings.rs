@@ -58,7 +58,8 @@ pub struct CheckResult {
     pub outputs: Vec<ConstraintOutput>,
 }
 
-/// A constraint function that checks room settings and returns an optional `ConstraintOutput`.
+/// A constraint function that checks room settings and returns an optional
+/// `ConstraintOutput`.
 type Constraint = Box<dyn Fn(&recv::room::Update) -> Option<ConstraintOutput> + Send + Sync>;
 
 /// Creates a new error constraint output.
@@ -76,7 +77,8 @@ pub struct SettingsHandler {
     constraints: Vec<Constraint>,
 }
 
-/// A macro to create a constraint function that checks a specific field in the room settings.
+/// A macro to create a constraint function that checks a specific field in the
+/// room settings.
 macro_rules! constraint {
     ($o:ident $t:expr => $e:pat, $m:expr, $f:expr) => {
         Box::new(|data| {
@@ -99,7 +101,8 @@ impl SettingsHandler {
         }
     }
 
-    /// Returns a list of default constraints that Rue enforces on room settings.
+    /// Returns a list of default constraints that Rue enforces on room
+    /// settings.
     fn default_constraints() -> Vec<Constraint> {
         vec![
             constraint!(o o.spinbonuses => SpinBonuses::AllMiniPlus | SpinBonuses::AllPlus, "spin bonuses must be all-mini+ or all+", "options.spinbonuses=all-mini+"),
@@ -115,7 +118,8 @@ impl SettingsHandler {
             constraint!(o o.nolockout => true, "lockout must be disabled", "options.nolockout=1"),
             constraint!(o o.stock => 0, "stock must be 0", "options.stock=0"),
             constraint!(o o.garbagephase => 0, "garbage phase must be 0", "options.garbagephase=0"),
-            // constraint!(o o.garbageentry => GarbageEntry::Instant, "garbage entry must be instant"),
+            // constraint!(o o.garbageentry => GarbageEntry::Instant, "garbage entry must be
+            // instant"),
             constraint!(o o.garbagequeue => false, "garbage queue must be disabled", "options.garbagequeue=0"),
             constraint!(o o.messiness_timeout => 0.0, "messiness timeout must be 0", "options.messiness_timeout=0"),
             constraint!(o o.bagtype => BagType::Bag7, "bag type must be 7-bag", "options.bagtype=7-bag"),
@@ -123,7 +127,8 @@ impl SettingsHandler {
         ]
     }
 
-    /// Checks the given room update against the constraints and returns a `CheckResult` if any constraints are violated.
+    /// Checks the given room update against the constraints and returns a
+    /// `CheckResult` if any constraints are violated.
     pub fn check_room_update(&self, data: &recv::room::Update) -> Option<CheckResult> {
         let outputs: Vec<ConstraintOutput> =
             self.constraints.iter().filter_map(|c| c(data)).collect();

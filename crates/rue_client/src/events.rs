@@ -29,7 +29,8 @@ struct Listener {
 
 static NEXT_ID: AtomicU64 = AtomicU64::new(1);
 
-/// A global event emitter that allows registering listeners and emitting events.
+/// A global event emitter that allows registering listeners and emitting
+/// events.
 #[derive(Clone)]
 pub struct Events {
     listeners: Arc<RwLock<Vec<Listener>>>,
@@ -50,7 +51,8 @@ impl Events {
         }
     }
 
-    /// Registers a listener for a specific event type. The callback will be called whenever the event is emitted.
+    /// Registers a listener for a specific event type. The callback will be
+    /// called whenever the event is emitted.
     pub async fn on<T: Event>(
         &self,
         cb: impl AsyncFnOnce(T) -> () + AsyncCallback<T> + Sync,
